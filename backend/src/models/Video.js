@@ -10,19 +10,17 @@ const videoSchema = new mongoose.Schema({
     type: String,
     required: [true, "Please add a description"],
   },
-  instructor: {
-    name: {
-      type: String,
-      required: true,
-    },
-    bio: String,
-    profilePicture: String,
+  instructor_name: {
+    type: String,
+    required: true,
   },
-  thumbnail: {
+  instructor_bio: String,
+  instructor_photo: String,
+  thumbnail_url: {
     type: String,
     required: [true, "Please add a thumbnail"],
   },
-  videoUrl: {
+  video_url: {
     type: String,
     required: [true, "Please add a video URL"],
   },
@@ -32,15 +30,29 @@ const videoSchema = new mongoose.Schema({
     min: 0,
   },
   duration: {
-    type: Number, // in seconds
+    type: Number, // in minutes
     required: true,
   },
   category: {
     type: String,
-    enum: ["Shooting", "Defense", "Faceoff", "Goalie", "Midfield", "General"],
-    default: "General",
+    enum: ["offense", "defense", "faceoffs", "goalies"],
+    required: true,
   },
-  createdAt: {
+  skill_level: {
+    type: String,
+    enum: ["beginner", "intermediate", "advanced", "all"],
+    default: "all",
+  },
+  is_featured: {
+    type: Boolean,
+    default: false,
+  },
+  is_active: {
+    type: Boolean,
+    default: true,
+  },
+  tags: [String],
+  created_date: {
     type: Date,
     default: Date.now,
   },

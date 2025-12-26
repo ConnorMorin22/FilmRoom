@@ -1,5 +1,6 @@
 const express = require("express");
 const dotenv = require("dotenv");
+const cors = require("cors");
 const connectDB = require("./config/database");
 const authRoutes = require("./routes/authRoutes");
 const videoRoutes = require("./routes/videoRoutes");
@@ -13,6 +14,17 @@ connectDB();
 
 // Create Express app
 const app = express();
+
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173",
+      "http://localhost:5174",
+      "http://localhost:5175",
+    ],
+    credentials: true,
+  })
+);
 
 // Middleware to parse JSON (except for Stripe webhook)
 app.use("/api/purchases/webhook", express.raw({ type: "application/json" }));

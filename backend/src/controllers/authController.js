@@ -95,16 +95,14 @@ exports.login = async (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     // req.user is set by auth middleware
-    const user = await User.findById(req.user._id);
+    // Populate purchasedVideos to get full video objects instead of just IDs
+    const user = await User.findById(req.user._id).populate("purchasedVideos");
 
     res.json({
-      success: true,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        purchasedVideos: user.purchasedVideos,
-      },
+      id: user._id,
+      name: user.name,
+      email: user.email,
+      purchasedVideos: user.purchasedVideos,
     });
   } catch (error) {
     console.error("Get user error:", error);

@@ -5,19 +5,18 @@ const Purchase = require("../models/Purchase");
 const Video = require("../models/Video");
 const User = require("../models/User");
 
-// @desc    Create Stripe checkout session
+// @desc    Create Stripe checkout session (or demo purchase)
 // @route   POST /api/purchases/create-checkout
 exports.createCheckout = async (req, res) => {
   try {
-    // Check if Stripe is configured
-    if (!stripe) {
-      return res
-        .status(503)
-        .json({ error: "Payment processing not configured yet" });
-    }
-
     const { videoId } = req.body;
     const userId = req.user._id;
+
+    // Get video details
+    const video = await Video.findById(videoId);
+    if (!video) {
+      return res.status(404).json({ error: "Video not found" });
+    }
 
     // Check if already purchased
     const existingPurchase = await Purchase.findOne({
@@ -29,13 +28,32 @@ exports.createCheckout = async (req, res) => {
       return res.status(400).json({ error: "You already own this video" });
     }
 
-    // Get video details
-    const video = await Video.findById(videoId);
-    if (!video) {
-      return res.status(404).json({ error: "Video not found" });
+    // DEMO MODE: If Stripe not configured, create purchase directly
+    if (!stripe) {
+      console.log("🎬 DEMO MODE: Creating purchase without Stripe");
+
+      // Create purchase record
+      const purchase = await Purchase.create({
+        user: userId,
+        video: videoId,
+        amount: video.price * 100, // convert to cents
+        status: "completed",
+      });
+
+      // Add video to user's purchased videos
+      await User.findByIdAndUpdate(userId, {
+        $addToSet: { purchasedVideos: videoId },
+      });
+
+      return res.json({
+        success: true,
+        demo: true,
+        message: "Demo purchase completed",
+        purchase: purchase,
+      });
     }
 
-    // Create Stripe checkout session
+    // PRODUCTION MODE: Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
@@ -46,9 +64,9 @@ exports.createCheckout = async (req, res) => {
             product_data: {
               name: video.title,
               description: video.description,
-              images: [video.thumbnail],
+              images: [video.thumbnail_url],
             },
-            unit_amount: video.price, // in cents
+            unit_amount: video.price * 100, // in cents
           },
           quantity: 1,
         },

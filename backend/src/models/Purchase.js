@@ -13,7 +13,9 @@ const purchaseSchema = new mongoose.Schema({
   },
   stripeSessionId: {
     type: String,
-    required: true,
+    required: false, // Changed from true
+    unique: true, // Add this
+    sparse: true, // Add this - allows multiple null/undefined values
   },
   amount: {
     type: Number, // in cents
