@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import axios from "axios";
+import { api } from "@/api/customClient";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -40,16 +40,11 @@ export default function Register() {
     setIsLoading(true);
 
     try {
-      const { data } = await axios.post(
-        "http://localhost:5001/api/auth/register",
-        {
-          name: formData.name,
-          email: formData.email,
-          password: formData.password,
-        }
-      );
-
-      localStorage.setItem("filmroom_token", data.token);
+      await api.post("/auth/register", {
+        name: formData.name,
+        email: formData.email,
+        password: formData.password,
+      });
       window.location.href = "/";
     } catch (err) {
       setError(err.response?.data?.error || "Registration failed");

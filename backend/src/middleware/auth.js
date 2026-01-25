@@ -3,7 +3,7 @@ const User = require("../models/User");
 
 exports.protect = async (req, res, next) => {
   try {
-    let token;
+    let token = req.cookies?.filmroom_token;
 
     // Check if token exists in Authorization header
     if (

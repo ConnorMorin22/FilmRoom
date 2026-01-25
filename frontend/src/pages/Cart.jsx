@@ -60,39 +60,13 @@ export default function Cart() {
     setIsProcessing(true);
 
     try {
-      const token = localStorage.getItem("filmroom_token");
-
-      if (!token) {
-        alert("Please log in to complete your purchase");
-        navigate(createPageUrl("Login"));
-        return;
-      }
-
       // Process each video purchase through your backend
       for (const item of cartItems) {
-        const response = await fetch(
-          "http://localhost:5001/api/purchases/create-checkout",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              videoId: item.video.id,
-            }),
-          }
-        );
-
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(
-            errorData.error || `Checkout failed for ${item.video.title}`
-          );
+        const data = await Purchase.create({ video_id: item.video.id });
+        if (data?.url) {
+          window.location.href = data.url;
+          return;
         }
-
-        const data = await response.json();
-        console.log("Purchase completed:", data);
       }
 
       // Clear cart after successful purchases
@@ -105,6 +79,11 @@ export default function Cart() {
       navigate(createPageUrl("Library"));
     } catch (error) {
       console.error("Checkout error:", error);
+      if (error.response?.status === 401) {
+        alert("Please log in to complete your purchase");
+        navigate(createPageUrl("Login"));
+        return;
+      }
       alert(
         error.message ||
           "There was an error processing your purchase. Please try again."
@@ -251,7 +230,7 @@ export default function Cart() {
                   </Button>
 
                   <p className="text-xs text-slate-400 text-center">
-                    * This is a demo. No actual payment will be processed.
+                    * Stripe checkout opens in a new secure payment session.
                   </p>
                 </CardContent>
               </Card>

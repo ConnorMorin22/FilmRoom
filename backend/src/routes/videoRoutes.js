@@ -4,14 +4,19 @@ const {
   getAllVideos,
   getVideo,
   getMyLibrary,
+  getStreamUrl,
 } = require("../controllers/videoController");
 const { protect } = require("../middleware/auth");
+const { verifyPurchase } = require("../middleware/purchaseCheck");
 
 // Public routes
 router.get("/", getAllVideos);
-router.get("/:id", getVideo);
 
 // Protected routes
 router.get("/my-library", protect, getMyLibrary);
+router.get("/:id/stream", protect, verifyPurchase, getStreamUrl);
+
+// Public routes (after specific protected routes)
+router.get("/:id", getVideo);
 
 module.exports = router;

@@ -42,28 +42,8 @@ export default function Library() {
 
   const loadLibrary = useCallback(async () => {
     try {
-      const token = localStorage.getItem("filmroom_token");
-
-      if (!token) {
-        navigate(createPageUrl("Login"));
-        return;
-      }
-
-      // Fetch user with populated purchasedVideos
-      const response = await fetch("http://localhost:5001/api/auth/me", {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to fetch user");
-      }
-
-      const userData = await response.json();
+      const userData = await User.me();
       setUser(userData);
-
-      // userData.purchasedVideos should be an array of populated video objects
       setPurchasedVideos(userData.purchasedVideos || []);
     } catch (error) {
       console.error("Failed to load library:", error);

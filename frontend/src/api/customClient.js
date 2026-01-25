@@ -1,22 +1,15 @@
 import axios from "axios";
 
-const API_URL = "http://localhost:5001/api";
+export const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:5001/api";
 
 // Create axios instance
-const api = axios.create({
+export const api = axios.create({
   baseURL: API_URL,
   headers: {
     "Content-Type": "application/json",
   },
-});
-
-// Add token to requests
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem("filmroom_token");
-  if (token) {
-    config.headers.Authorization = `Bearer ${token}`;
-  }
-  return config;
+  withCredentials: true,
 });
 
 // Video Entity - matches Base44 API
@@ -130,6 +123,7 @@ export const User = {
         id: data.id,
         email: data.email,
         full_name: data.name,
+        purchasedVideos: data.purchasedVideos || [],
         role: "user",
       };
       return this.currentUser;
@@ -144,7 +138,7 @@ export const User = {
   },
 
   async logout() {
-    localStorage.removeItem("filmroom_token");
+    await api.post("/auth/logout");
     localStorage.removeItem("filmroom_return_url");
     localStorage.removeItem("filmroom_cart");
     this.currentUser = null;

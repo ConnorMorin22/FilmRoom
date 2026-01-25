@@ -20,9 +20,15 @@ const videoSchema = new mongoose.Schema({
     type: String,
     required: [true, "Please add a thumbnail"],
   },
+  thumbnail: {
+    type: String,
+  },
   video_url: {
     type: String,
     required: [true, "Please add a video URL"],
+  },
+  videoKey: {
+    type: String,
   },
   price: {
     type: Number,

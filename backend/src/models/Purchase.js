@@ -17,6 +17,12 @@ const purchaseSchema = new mongoose.Schema({
     unique: true, // Add this
     sparse: true, // Add this - allows multiple null/undefined values
   },
+  stripePaymentIntentId: {
+    type: String,
+    required: false,
+    unique: true,
+    sparse: true,
+  },
   amount: {
     type: Number, // in cents
     required: true,

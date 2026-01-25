@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Video } from "@/api/entities";
 import { CartItem } from "@/api/entities";
-import { Purchase } from "@/api/entities";
 import { User } from "@/api/entities";
 import { 
   Play, 
@@ -44,13 +43,8 @@ export default function VideoDetail() {
       const currentUser = await User.me();
       setUser(currentUser);
 
-      // Check if already purchased
-      const purchases = await Purchase.filter({ 
-        user_email: currentUser.email, 
-        video_id: videoId,
-        payment_status: "completed"
-      });
-      setHasPurchased(purchases.length > 0);
+      const purchasedVideos = currentUser.purchasedVideos || [];
+      setHasPurchased(purchasedVideos.some((v) => v._id === videoId));
 
       // Check if in cart
       const cartItems = await CartItem.filter({ 

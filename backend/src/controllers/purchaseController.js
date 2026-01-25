@@ -54,6 +54,9 @@ exports.createCheckout = async (req, res) => {
     }
 
     // PRODUCTION MODE: Create Stripe checkout session
+    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const thumbnailUrl = video.thumbnail_url || video.thumbnail;
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
@@ -64,7 +67,7 @@ exports.createCheckout = async (req, res) => {
             product_data: {
               name: video.title,
               description: video.description,
-              images: [video.thumbnail_url],
+              images: thumbnailUrl ? [thumbnailUrl] : [],
             },
             unit_amount: video.price * 100, // in cents
           },
@@ -75,8 +78,8 @@ exports.createCheckout = async (req, res) => {
         userId: userId.toString(),
         videoId: videoId.toString(),
       },
-      success_url: `${process.env.FRONTEND_URL}/payment-success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${process.env.FRONTEND_URL}/video/${videoId}`,
+      success_url: `${frontendUrl}/Library`,
+      cancel_url: `${frontendUrl}/Videos`,
     });
 
     res.json({ success: true, url: session.url });
@@ -122,6 +125,7 @@ exports.stripeWebhook = async (req, res) => {
         user: userId,
         video: videoId,
         stripeSessionId: session.id,
+        stripePaymentIntentId: session.payment_intent,
         amount: session.amount_total,
         status: "completed",
       });

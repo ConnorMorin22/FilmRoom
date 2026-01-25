@@ -1,10 +1,12 @@
 const express = require("express");
 const dotenv = require("dotenv");
 const cors = require("cors");
+const cookieParser = require("cookie-parser");
 const connectDB = require("./config/database");
 const authRoutes = require("./routes/authRoutes");
 const videoRoutes = require("./routes/videoRoutes");
 const purchaseRoutes = require("./routes/purchaseRoutes");
+const { stripeWebhook } = require("./controllers/purchaseController");
 
 // Load environment variables
 dotenv.config();
@@ -17,17 +19,34 @@ const app = express();
 
 app.use(
   cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost:5174",
-      "http://localhost:5175",
-    ],
+    origin: (origin, callback) => {
+      const allowedOrigins = [
+        process.env.FRONTEND_URL,
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+      ].filter(Boolean);
+
+      if (!origin || allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
     credentials: true,
   })
 );
 
-// Middleware to parse JSON (except for Stripe webhook)
-app.use("/api/purchases/webhook", express.raw({ type: "application/json" }));
+app.use(cookieParser());
+
+// Stripe webhook (must be raw body)
+app.post(
+  "/api/webhooks/stripe",
+  express.raw({ type: "application/json" }),
+  stripeWebhook
+);
+
+// Middleware to parse JSON
 app.use(express.json());
 
 // Routes

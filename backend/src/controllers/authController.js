@@ -8,6 +8,17 @@ const generateToken = (userId) => {
   });
 };
 
+const setAuthCookie = (res, token) => {
+  const isProd = process.env.NODE_ENV === "production";
+  res.cookie("filmroom_token", token, {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    path: "/",
+  });
+};
+
 // @desc    Register new user
 // @route   POST /api/auth/register
 exports.register = async (req, res) => {
@@ -29,6 +40,7 @@ exports.register = async (req, res) => {
 
     // Generate token
     const token = generateToken(user._id);
+    setAuthCookie(res, token);
 
     // Return user data (without password) and token
     res.status(201).json({
@@ -73,6 +85,7 @@ exports.login = async (req, res) => {
 
     // Generate token
     const token = generateToken(user._id);
+    setAuthCookie(res, token);
 
     // Return user data and token
     res.json({
@@ -108,4 +121,17 @@ exports.getMe = async (req, res) => {
     console.error("Get user error:", error);
     res.status(500).json({ error: "Error fetching user" });
   }
+};
+
+// @desc    Logout user (clear auth cookie)
+// @route   POST /api/auth/logout
+exports.logout = (req, res) => {
+  const isProd = process.env.NODE_ENV === "production";
+  res.clearCookie("filmroom_token", {
+    httpOnly: true,
+    secure: isProd,
+    sameSite: isProd ? "none" : "lax",
+    path: "/",
+  });
+  res.json({ success: true });
 };

@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import axios from "axios";
+import { api } from "@/api/customClient";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -18,15 +18,10 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const { data } = await axios.post(
-        "http://localhost:5001/api/auth/login",
-        {
-          email,
-          password,
-        }
-      );
-
-      localStorage.setItem("filmroom_token", data.token);
+      await api.post("/auth/login", {
+        email,
+        password,
+      });
 
       const returnUrl = localStorage.getItem("filmroom_return_url") || "/";
       localStorage.removeItem("filmroom_return_url");
