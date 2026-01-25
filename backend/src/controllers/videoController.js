@@ -8,7 +8,34 @@ const s3 = new AWS.S3({
   region: process.env.AWS_REGION,
 });
 
+const getCloudFrontSigner = () => {
+  const keyPairId = process.env.CLOUDFRONT_KEY_PAIR_ID;
+  const privateKey = process.env.CLOUDFRONT_PRIVATE_KEY;
+
+  if (!keyPairId || !privateKey) return null;
+
+  const normalizedKey = privateKey.includes("BEGIN")
+    ? privateKey
+    : Buffer.from(privateKey, "base64").toString("utf8");
+
+  return new AWS.CloudFront.Signer(keyPairId, normalizedKey);
+};
+
 const generateSignedUrl = (videoKey) => {
+  const cloudfrontUrl = process.env.CLOUDFRONT_URL;
+  const cloudfrontSigner = getCloudFrontSigner();
+
+  if (cloudfrontUrl && cloudfrontSigner) {
+    const baseUrl = cloudfrontUrl.replace(/\/$/, "");
+    const objectPath = videoKey.startsWith("/") ? videoKey : `/${videoKey}`;
+    const url = `${baseUrl}${objectPath}`;
+
+    return cloudfrontSigner.getSignedUrl({
+      url,
+      expires: Math.floor(Date.now() / 1000) + 4 * 60 * 60,
+    });
+  }
+
   const params = {
     Bucket: process.env.S3_BUCKET_NAME,
     Key: videoKey,

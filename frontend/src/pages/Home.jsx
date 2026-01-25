@@ -31,64 +31,68 @@ export default function Home() {
 
   const loadData = async () => {
     try {
-      const currentUser = await User.me();
-      setUser(currentUser);
+      try {
+        const currentUser = await User.me();
+        setUser(currentUser);
+      } catch (error) {
+        // User not logged in
+      }
+
+      const videos = await Video.filter(
+        { is_featured: true, is_active: true },
+        "-created_date",
+        6
+      );
+      setFeaturedVideos(videos);
+
+      // Load category counts
+      const allVideos = await Video.filter({ is_active: true });
+      const categoryCounts = {
+        offense: allVideos.filter((v) => v.category === "offense").length,
+        defense: allVideos.filter((v) => v.category === "defense").length,
+        faceoffs: allVideos.filter((v) => v.category === "faceoffs").length,
+        goalies: allVideos.filter((v) => v.category === "goalies").length,
+      };
+
+      setCategories([
+        {
+          name: "Offense",
+          slug: "offense",
+          icon: Target,
+          color: "from-red-500 to-orange-500",
+          count: categoryCounts.offense,
+          description: "Master dodging, shooting, and offensive strategies",
+        },
+        {
+          name: "Defense",
+          slug: "defense",
+          icon: Shield,
+          color: "from-blue-500 to-cyan-500",
+          count: categoryCounts.defense,
+          description: "Perfect your defensive positioning and techniques",
+        },
+        {
+          name: "Faceoffs",
+          slug: "faceoffs",
+          icon: Zap,
+          color: "from-purple-500 to-pink-500",
+          count: categoryCounts.faceoffs,
+          description: "Dominate the X with winning faceoff strategies",
+        },
+        {
+          name: "Goalies",
+          slug: "goalies",
+          icon: Award,
+          color: "from-green-500 to-emerald-500",
+          count: categoryCounts.goalies,
+          description: "Become an elite goalkeeper with pro techniques",
+        },
+      ]);
     } catch (error) {
-      // User not logged in
+      console.error("Failed to load home data:", error);
+    } finally {
+      setIsLoading(false);
     }
-
-    const videos = await Video.filter(
-      { is_featured: true, is_active: true },
-      "-created_date",
-      6
-    );
-    setFeaturedVideos(videos);
-
-    // Load category counts
-    const allVideos = await Video.filter({ is_active: true });
-    const categoryCounts = {
-      offense: allVideos.filter((v) => v.category === "offense").length,
-      defense: allVideos.filter((v) => v.category === "defense").length,
-      faceoffs: allVideos.filter((v) => v.category === "faceoffs").length,
-      goalies: allVideos.filter((v) => v.category === "goalies").length,
-    };
-
-    setCategories([
-      {
-        name: "Offense",
-        slug: "offense",
-        icon: Target,
-        color: "from-red-500 to-orange-500",
-        count: categoryCounts.offense,
-        description: "Master dodging, shooting, and offensive strategies",
-      },
-      {
-        name: "Defense",
-        slug: "defense",
-        icon: Shield,
-        color: "from-blue-500 to-cyan-500",
-        count: categoryCounts.defense,
-        description: "Perfect your defensive positioning and techniques",
-      },
-      {
-        name: "Faceoffs",
-        slug: "faceoffs",
-        icon: Zap,
-        color: "from-purple-500 to-pink-500",
-        count: categoryCounts.faceoffs,
-        description: "Dominate the X with winning faceoff strategies",
-      },
-      {
-        name: "Goalies",
-        slug: "goalies",
-        icon: Award,
-        color: "from-green-500 to-emerald-500",
-        count: categoryCounts.goalies,
-        description: "Become an elite goalkeeper with pro techniques",
-      },
-    ]);
-
-    setIsLoading(false);
   };
 
   if (isLoading) {

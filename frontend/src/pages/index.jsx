@@ -60,12 +60,12 @@ function PagesContent() {
     <Layout currentPageName={currentPage}>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/Home" element={<Home />} />
-        <Route path="/Videos" element={<Videos />} />
-        <Route path="/VideoDetail" element={<VideoDetail />} />
-        <Route path="/Library" element={<Library />} />
-        <Route path="/Cart" element={<Cart />} />
-        <Route path="/Admin" element={<Admin />} />
+        <Route path="/home" element={<Home />} />
+        <Route path="/videos" element={<Videos />} />
+        <Route path="/videodetail" element={<VideoDetail />} />
+        <Route path="/library" element={<Library />} />
+        <Route path="/cart" element={<Cart />} />
+        <Route path="/admin" element={<Admin />} />
       </Routes>
     </Layout>
   );

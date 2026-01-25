@@ -65,9 +65,17 @@ export default function Videos() {
 
   useEffect(() => {
     const loadAllVideos = async () => {
-      const allVideos = await Video.filter({ is_active: true }, "-created_date");
-      setVideos(allVideos);
-      setIsLoading(false);
+      try {
+        const allVideos = await Video.filter(
+          { is_active: true },
+          "-created_date"
+        );
+        setVideos(allVideos);
+      } catch (error) {
+        console.error("Failed to load videos:", error);
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     loadAllVideos();

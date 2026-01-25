@@ -5,6 +5,7 @@ import { createPageUrl } from "@/utils";
 import { Video } from "@/api/entities";
 import { CartItem } from "@/api/entities";
 import { User } from "@/api/entities";
+import { API_URL } from "@/api/customClient";
 import { 
   Play, 
   Clock, 
@@ -24,15 +25,19 @@ import { Separator } from "@/components/ui/separator";
 export default function VideoDetail() {
   const navigate = useNavigate();
   const [video, setVideo] = useState(null);
+  const [videoId, setVideoId] = useState(null);
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAddingToCart, setIsAddingToCart] = useState(false);
   const [isInCart, setIsInCart] = useState(false);
   const [hasPurchased, setHasPurchased] = useState(false);
+  const [streamUrl, setStreamUrl] = useState("");
+  const [isStreamLoading, setIsStreamLoading] = useState(false);
 
   const loadVideoDetail = useCallback(async () => {
     const urlParams = new URLSearchParams(window.location.search);
-    const videoId = urlParams.get('id');
+    const videoId = urlParams.get("id");
+    setVideoId(videoId);
     
     if (!videoId) {
       navigate(createPageUrl("Videos"));
@@ -70,6 +75,29 @@ export default function VideoDetail() {
   useEffect(() => {
     loadVideoDetail();
   }, [loadVideoDetail]); // loadVideoDetail is now memoized by useCallback
+
+  useEffect(() => {
+    const loadStreamUrl = async () => {
+      if (!hasPurchased || !videoId) return;
+      setIsStreamLoading(true);
+      try {
+        const response = await fetch(`${API_URL}/videos/${videoId}/stream`, {
+          credentials: "include",
+        });
+        if (!response.ok) {
+          throw new Error("Failed to load stream URL");
+        }
+        const data = await response.json();
+        setStreamUrl(data.streamUrl);
+      } catch (error) {
+        console.error("Stream URL error:", error);
+      } finally {
+        setIsStreamLoading(false);
+      }
+    };
+
+    loadStreamUrl();
+  }, [hasPurchased, videoId]);
 
   const handleAddToCart = async () => {
     if (!user) {
@@ -146,13 +174,28 @@ export default function VideoDetail() {
               <div className="relative aspect-video">
                 {hasPurchased ? (
                   <div className="w-full h-full bg-black flex items-center justify-center">
-                    <div className="text-center">
-                      <Play className="w-16 h-16 text-blue-400 mx-auto mb-4" />
-                      <p className="text-white">Full video would play here</p>
-                      <p className="text-slate-400 text-sm mt-2">
-                        (In production, this would embed the actual video player)
-                      </p>
-                    </div>
+                    {isStreamLoading ? (
+                      <div className="text-center">
+                        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4" />
+                        <p className="text-slate-400 text-sm">
+                          Loading stream...
+                        </p>
+                      </div>
+                    ) : streamUrl ? (
+                      <video
+                        className="w-full h-full"
+                        src={streamUrl}
+                        controls
+                        playsInline
+                      />
+                    ) : (
+                      <div className="text-center">
+                        <Play className="w-16 h-16 text-blue-400 mx-auto mb-4" />
+                        <p className="text-slate-400 text-sm">
+                          Stream unavailable
+                        </p>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <>
