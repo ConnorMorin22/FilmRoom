@@ -26,8 +26,14 @@ app.use(
         "http://localhost:5174",
         "http://localhost:5175",
       ].filter(Boolean);
+      const vercelPreviewRegex =
+        /^https:\/\/filmroom-frontend-[a-z0-9-]+\.vercel\.app$/i;
 
-      if (!origin || allowedOrigins.includes(origin)) {
+      if (
+        !origin ||
+        allowedOrigins.includes(origin) ||
+        vercelPreviewRegex.test(origin)
+      ) {
         return callback(null, true);
       }
 
