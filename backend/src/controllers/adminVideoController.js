@@ -125,3 +125,51 @@ exports.createVideo = async (req, res) => {
   }
 };
 
+// @desc    Update video record (admin)
+// @route   PUT /api/admin/videos/:id
+exports.updateVideo = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const allowedFields = [
+      "title",
+      "description",
+      "stripeProductId",
+      "price",
+      "category",
+      "duration",
+      "thumbnail_url",
+      "instructor_name",
+      "instructor_bio",
+      "instructor_photo",
+      "skill_level",
+      "tags",
+      "is_featured",
+      "is_active",
+      "preview_url",
+      "video_url",
+      "videoKey",
+    ];
+
+    const updates = Object.keys(req.body || {}).reduce((acc, key) => {
+      if (allowedFields.includes(key)) {
+        acc[key] = req.body[key];
+      }
+      return acc;
+    }, {});
+
+    const video = await Video.findByIdAndUpdate(id, updates, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!video) {
+      return res.status(404).json({ error: "Video not found" });
+    }
+
+    return res.json({ success: true, video });
+  } catch (error) {
+    console.error("Update video error:", error);
+    return res.status(500).json({ error: "Error updating video" });
+  }
+};
+

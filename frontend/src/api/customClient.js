@@ -65,7 +65,8 @@ export const Video = {
   },
 
   async update(id, data) {
-    return { success: true };
+    const { data: response } = await api.put(`/admin/videos/${id}`, data);
+    return response;
   },
 
   async create(data) {
