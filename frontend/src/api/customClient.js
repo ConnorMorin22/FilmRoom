@@ -77,11 +77,28 @@ export const Video = {
 // Purchase Entity
 export const Purchase = {
   async list(sortBy = "-created_date") {
-    return [];
+    const { data } = await api.get("/admin/purchases");
+    let purchases = data.purchases || [];
+
+    if (sortBy === "-created_date") {
+      purchases.sort(
+        (a, b) => new Date(b.created_date) - new Date(a.created_date)
+      );
+    }
+
+    return purchases;
   },
 
   async filter(filters = {}, sortBy = "-created_date") {
-    return [];
+    let purchases = await this.list(sortBy);
+
+    Object.keys(filters).forEach((key) => {
+      if (filters[key] !== undefined && filters[key] !== null) {
+        purchases = purchases.filter((p) => p[key] === filters[key]);
+      }
+    });
+
+    return purchases;
   },
 
   async create(data) {
@@ -151,6 +168,17 @@ export const User = {
     localStorage.removeItem("filmroom_cart");
     this.currentUser = null;
     window.location.href = "/";
+  },
+
+  async list(sortBy = "-created_date") {
+    const { data } = await api.get("/admin/users");
+    let users = data.users || [];
+
+    if (sortBy === "-created_date") {
+      users.sort((a, b) => new Date(b.created_date) - new Date(a.created_date));
+    }
+
+    return users;
   },
 };
 
