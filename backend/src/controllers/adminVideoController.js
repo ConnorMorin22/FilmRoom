@@ -13,13 +13,11 @@ const getBucketName = () => {
   return bucket && bucket.trim() ? bucket.trim() : "filmroom-prod-videos";
 };
 
-const createS3Client = (bucket) =>
+const createS3Client = ({ forcePathStyle = false } = {}) =>
   new AWS.S3({
     region: getRegion(),
     signatureVersion: "v4",
-    s3ForcePathStyle: false,
-    s3BucketEndpoint: true,
-    endpoint: `https://${bucket}.s3.${getRegion()}.amazonaws.com`,
+    s3ForcePathStyle: forcePathStyle,
   });
 
 const buildPublicUrl = (bucket, key) => {
@@ -47,24 +45,41 @@ exports.getUploadUrl = async (req, res) => {
     const prefix = folder ? `${folder.replace(/\/+$/g, "")}/` : "uploads/";
     const key = `${prefix}${Date.now()}_${safeName}`;
 
-    const s3 = createS3Client(bucket);
-    const uploadUrl = s3.getSignedUrl("putObject", {
+    const virtualClient = createS3Client({ forcePathStyle: false });
+    let uploadUrl = virtualClient.getSignedUrl("putObject", {
       Bucket: bucket,
       Key: key,
       ContentType: contentType,
       Expires: 300,
     });
 
+    let urlStyle = "virtual";
+    const encodedKey = encodeURIComponent(key).replace(/%2F/g, "/");
+    const hasBucketHost = uploadUrl.includes(`${bucket}.s3.`);
+    const hasKeyPath = uploadUrl.includes(`/${encodedKey}`);
+
+    if (!hasBucketHost || !hasKeyPath) {
+      const pathClient = createS3Client({ forcePathStyle: true });
+      uploadUrl = pathClient.getSignedUrl("putObject", {
+        Bucket: bucket,
+        Key: key,
+        ContentType: contentType,
+        Expires: 300,
+      });
+      urlStyle = "path";
+    }
+
     console.log("S3 presign", {
       bucket,
       key,
       region: getRegion(),
       uploadUrl,
+      urlStyle,
     });
 
-    if (!uploadUrl.includes(`${bucket}.s3.`)) {
+    if (!uploadUrl.includes(encodedKey)) {
       return res.status(500).json({
-        error: "Presigned URL is missing bucket host",
+        error: "Presigned URL is missing object key",
         uploadUrl,
       });
     }
