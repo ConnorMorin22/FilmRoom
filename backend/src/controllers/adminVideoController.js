@@ -13,11 +13,14 @@ const getBucketName = () => {
   return bucket && bucket.trim() ? bucket.trim() : "filmroom-prod-videos";
 };
 
-const s3 = new AWS.S3({
-  region: getRegion(),
-  signatureVersion: "v4",
-  s3ForcePathStyle: false,
-});
+const createS3Client = (bucket) =>
+  new AWS.S3({
+    region: getRegion(),
+    signatureVersion: "v4",
+    s3ForcePathStyle: false,
+    s3BucketEndpoint: true,
+    endpoint: `https://${bucket}.s3.${getRegion()}.amazonaws.com`,
+  });
 
 const buildPublicUrl = (bucket, key) => {
   const encodedKey = encodeURIComponent(key).replace(/%2F/g, "/");
@@ -44,6 +47,7 @@ exports.getUploadUrl = async (req, res) => {
     const prefix = folder ? `${folder.replace(/\/+$/g, "")}/` : "uploads/";
     const key = `${prefix}${Date.now()}_${safeName}`;
 
+    const s3 = createS3Client(bucket);
     const uploadUrl = s3.getSignedUrl("putObject", {
       Bucket: bucket,
       Key: key,
@@ -57,6 +61,13 @@ exports.getUploadUrl = async (req, res) => {
       region: getRegion(),
       uploadUrl,
     });
+
+    if (!uploadUrl.includes(`${bucket}.s3.`)) {
+      return res.status(500).json({
+        error: "Presigned URL is missing bucket host",
+        uploadUrl,
+      });
+    }
 
     return res.json({
       uploadUrl,
