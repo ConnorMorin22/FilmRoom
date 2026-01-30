@@ -207,8 +207,10 @@ export default function Home() {
                     >
                       <category.icon className="w-8 h-8 text-white" />
                     </div>
-                    <h3 className="text-xl font-bold mb-3">{category.name}</h3>
-                    <p className="text-slate-400 mb-4">
+                    <h3 className="text-xl font-bold text-white mb-3">
+                      {category.name}
+                    </h3>
+                    <p className="text-slate-300 mb-4">
                       {category.description}
                     </p>
                     <Badge className="bg-slate-700 text-slate-300">

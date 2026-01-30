@@ -125,7 +125,9 @@ export default function Cart() {
           <Card className="bg-slate-800 border-slate-700">
             <CardContent className="text-center py-16">
               <ShoppingBag className="w-16 h-16 text-slate-400 mx-auto mb-4" />
-              <h2 className="text-2xl font-bold mb-2">Your cart is empty</h2>
+              <h2 className="text-2xl font-bold text-white mb-2">
+                Your cart is empty
+              </h2>
               <p className="text-slate-400 mb-6">
                 Add some training videos to get started
               </p>

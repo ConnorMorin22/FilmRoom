@@ -258,75 +258,63 @@ export default function VideoDetail() {
 
           {/* Sidebar */}
           <div className="space-y-6">
-            {/* Purchase Card */}
-            <Card className="bg-slate-800 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-2xl text-white">
-                  ${video.price}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {hasPurchased ? (
-                  <div className="text-center py-4">
+            {!hasPurchased && (
+              <Card className="bg-slate-800 border-slate-700">
+                <CardHeader>
+                  <CardTitle className="text-2xl text-white">
+                    ${video.price}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {!user ? (
                     <Button
-                      onClick={() => navigate(createPageUrl("Library"))}
-                      className="w-full bg-green-600 hover:bg-green-700"
+                      onClick={handleAddToCart}
+                      className="w-full bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white"
                     >
-                      Go to Library
+                      <ShoppingCart className="w-4 h-4 mr-2" />
+                      Sign In to Purchase
                     </Button>
-                  </div>
-                ) : (
-                  <>
-                    {!user ? (
-                      <Button 
-                        onClick={handleAddToCart}
-                        className="w-full bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white"
+                  ) : isInCart ? (
+                    <div>
+                      <Button
+                        onClick={() => navigate(createPageUrl("Cart"))}
+                        className="w-full bg-green-600 hover:bg-green-700 mb-3"
                       >
-                        <ShoppingCart className="w-4 h-4 mr-2" />
-                        Sign In to Purchase
+                        <CheckCircle className="w-4 h-4 mr-2" />
+                        In Cart - Checkout
                       </Button>
-                    ) : isInCart ? (
-                      <div>
-                        <Button 
-                          onClick={() => navigate(createPageUrl("Cart"))}
-                          className="w-full bg-green-600 hover:bg-green-700 mb-3"
-                        >
-                          <CheckCircle className="w-4 h-4 mr-2" />
-                          In Cart - Checkout
-                        </Button>
-                        <p className="text-slate-400 text-sm text-center">
-                          Item added to your cart
-                        </p>
-                      </div>
-                    ) : (
-                      <Button 
-                        onClick={handleAddToCart}
-                        disabled={isAddingToCart}
-                        className="w-full bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white"
-                      >
-                        <ShoppingCart className="w-4 h-4 mr-2" />
-                        {isAddingToCart ? "Adding..." : "Add to Cart"}
-                      </Button>
-                    )}
-                  </>
-                )}
+                      <p className="text-slate-400 text-sm text-center">
+                        Item added to your cart
+                      </p>
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={handleAddToCart}
+                      disabled={isAddingToCart}
+                      className="w-full bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white"
+                    >
+                      <ShoppingCart className="w-4 h-4 mr-2" />
+                      {isAddingToCart ? "Adding..." : "Add to Cart"}
+                    </Button>
+                  )}
 
-                <div className="space-y-3 text-sm text-slate-400">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-400" />
-                    Lifetime access
+                  <div className="space-y-3 text-sm text-slate-400">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-400" />
+                      Lifetime access
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-400" />
+                      HD video quality
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-400" />
+                      Mobile & desktop access
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-400" />
-                    HD video quality
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle className="w-4 h-4 text-green-400" />
-                    Mobile & desktop access
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             {/* Instructor Card */}
             <Card className="bg-slate-800 border-slate-700">
