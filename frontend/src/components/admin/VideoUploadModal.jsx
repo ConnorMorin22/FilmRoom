@@ -12,6 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 
 export default function VideoUploadModal({ onClose, onVideoUploaded }) {
   const [isUploading, setIsUploading] = useState(false);
+  const [error, setError] = useState("");
   const [videoData, setVideoData] = useState({
     title: "",
     description: "",
@@ -40,6 +41,7 @@ export default function VideoUploadModal({ onClose, onVideoUploaded }) {
   };
 
   const handleFileUpload = async (file, field) => {
+    setError("");
     try {
       const folder = field === "video_url" || field === "preview_url"
         ? "videos"
@@ -52,12 +54,14 @@ export default function VideoUploadModal({ onClose, onVideoUploaded }) {
       }));
     } catch (error) {
       console.error("Error uploading file:", error);
+      setError("File upload failed. Please try again.");
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsUploading(true);
+    setError("");
 
     try {
       const processedData = {
@@ -66,6 +70,16 @@ export default function VideoUploadModal({ onClose, onVideoUploaded }) {
         price: parseFloat(videoData.price) || 0,
         tags: videoData.tags ? videoData.tags.split(',').map(tag => tag.trim()) : []
       };
+
+      if (!processedData.s3Key) {
+        setError("Please upload the full video file before saving.");
+        return;
+      }
+
+      if (!processedData.thumbnail_url || processedData.duration <= 0) {
+        setError("Thumbnail and duration are required.");
+        return;
+      }
 
       await Video.create({
         title: processedData.title,
@@ -89,6 +103,10 @@ export default function VideoUploadModal({ onClose, onVideoUploaded }) {
       onVideoUploaded();
     } catch (error) {
       console.error("Error creating video:", error);
+      setError(
+        error.response?.data?.error ||
+          "Failed to create video. Check required fields."
+      );
     }
     
     setIsUploading(false);
@@ -110,6 +128,11 @@ export default function VideoUploadModal({ onClose, onVideoUploaded }) {
         </CardHeader>
         
         <CardContent>
+          {error && (
+            <div className="bg-red-900/30 border border-red-700 text-red-200 text-sm px-4 py-2 rounded">
+              {error}
+            </div>
+          )}
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Basic Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
