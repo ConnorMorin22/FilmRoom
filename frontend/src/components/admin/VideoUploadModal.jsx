@@ -20,6 +20,8 @@ export default function VideoUploadModal({ onClose, onVideoUploaded }) {
     instructor_bio: "",
     instructor_photo: "",
     video_url: "",
+    s3Key: "",
+    stripeProductId: "",
     preview_url: "",
     thumbnail_url: "",
     duration: "",
@@ -39,10 +41,14 @@ export default function VideoUploadModal({ onClose, onVideoUploaded }) {
 
   const handleFileUpload = async (file, field) => {
     try {
-      const { file_url } = await UploadFile({ file });
+      const folder = field === "video_url" || field === "preview_url"
+        ? "videos"
+        : "images";
+      const { file_url, s3Key } = await UploadFile({ file, folder });
       setVideoData(prev => ({
         ...prev,
-        [field]: file_url
+        [field]: file_url,
+        ...(field === "video_url" ? { s3Key } : {})
       }));
     } catch (error) {
       console.error("Error uploading file:", error);
@@ -61,7 +67,25 @@ export default function VideoUploadModal({ onClose, onVideoUploaded }) {
         tags: videoData.tags ? videoData.tags.split(',').map(tag => tag.trim()) : []
       };
 
-      await Video.create(processedData);
+      await Video.create({
+        title: processedData.title,
+        description: processedData.description,
+        s3Key: processedData.s3Key,
+        stripeProductId: processedData.stripeProductId,
+        price: processedData.price,
+        instructor: processedData.instructor_name,
+        category: processedData.category,
+        duration: processedData.duration,
+        thumbnail_url: processedData.thumbnail_url,
+        instructor_bio: processedData.instructor_bio,
+        instructor_photo: processedData.instructor_photo,
+        skill_level: processedData.skill_level,
+        tags: processedData.tags,
+        is_featured: processedData.is_featured,
+        is_active: processedData.is_active,
+        preview_url: processedData.preview_url,
+        video_url: processedData.video_url
+      });
       onVideoUploaded();
     } catch (error) {
       console.error("Error creating video:", error);
@@ -124,6 +148,16 @@ export default function VideoUploadModal({ onClose, onVideoUploaded }) {
                 onChange={(e) => handleInputChange("description", e.target.value)}
                 className="bg-slate-700 border-slate-600 text-white h-24"
                 required
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="stripeProductId" className="text-white">Stripe Product ID</Label>
+              <Input
+                id="stripeProductId"
+                value={videoData.stripeProductId}
+                onChange={(e) => handleInputChange("stripeProductId", e.target.value)}
+                className="bg-slate-700 border-slate-600 text-white"
               />
             </div>
 

@@ -2,11 +2,30 @@
 export const Core = null;
 export const InvokeLLM = null;
 export const SendEmail = null;
-export const UploadFile = async (file) => {
-  // Mock upload for now
+import { api } from "./customClient";
+
+export const UploadFile = async ({ file, folder }) => {
+  const { data } = await api.post("/admin/videos/upload", {
+    filename: file.name,
+    contentType: file.type,
+    folder,
+  });
+
+  const uploadResponse = await fetch(data.uploadUrl, {
+    method: "PUT",
+    headers: {
+      "Content-Type": file.type,
+    },
+    body: file,
+  });
+
+  if (!uploadResponse.ok) {
+    throw new Error("Failed to upload file to S3");
+  }
+
   return {
-    url: `https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800`,
-    key: `uploads/${Date.now()}_${file.name}`,
+    file_url: data.fileUrl,
+    s3Key: data.s3Key,
   };
 };
 export const GenerateImage = null;

@@ -49,6 +49,7 @@ exports.register = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        role: user.role,
       },
       token,
     });
@@ -94,6 +95,7 @@ exports.login = async (req, res) => {
         id: user._id,
         name: user.name,
         email: user.email,
+        role: user.role,
       },
       token,
     });
@@ -116,6 +118,7 @@ exports.getMe = async (req, res) => {
       name: user.name,
       email: user.email,
       purchasedVideos: user.purchasedVideos,
+      role: user.role,
     });
   } catch (error) {
     console.error("Get user error:", error);

@@ -6,6 +6,7 @@ const connectDB = require("./config/database");
 const authRoutes = require("./routes/authRoutes");
 const videoRoutes = require("./routes/videoRoutes");
 const purchaseRoutes = require("./routes/purchaseRoutes");
+const adminRoutes = require("./routes/adminRoutes");
 const { stripeWebhook } = require("./controllers/purchaseController");
 
 // Load environment variables
@@ -63,6 +64,7 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/videos", videoRoutes);
 app.use("/api/purchases", purchaseRoutes);
+app.use("/api/admin", adminRoutes);
 
 module.exports = app;
 

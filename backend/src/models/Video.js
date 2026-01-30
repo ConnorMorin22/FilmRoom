@@ -30,6 +30,9 @@ const videoSchema = new mongoose.Schema({
   videoKey: {
     type: String,
   },
+  stripeProductId: {
+    type: String,
+  },
   price: {
     type: Number,
     required: [true, "Please add a price"],
