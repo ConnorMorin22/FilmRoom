@@ -1,7 +1,10 @@
 import axios from "axios";
 
-export const API_URL =
+const RAW_API_URL =
   import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+export const API_URL = RAW_API_URL.endsWith("/api")
+  ? RAW_API_URL
+  : `${RAW_API_URL.replace(/\/+$/, "")}/api`;
 
 // Create axios instance
 export const api = axios.create({
@@ -64,6 +67,11 @@ export const Video = {
   async update(id, data) {
     return { success: true };
   },
+
+  async create(data) {
+    const { data: response } = await api.post("/admin/videos", data);
+    return response;
+  },
 };
 
 // Purchase Entity
@@ -124,7 +132,7 @@ export const User = {
         email: data.email,
         full_name: data.name,
         purchasedVideos: data.purchasedVideos || [],
-        role: "user",
+        role: data.role || "user",
       };
       return this.currentUser;
     } catch (error) {
