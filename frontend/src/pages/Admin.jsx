@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import { Video } from "@/api/entities";
 import { Purchase } from "@/api/entities";
 import { User } from "@/api/entities";
-import { UploadFile } from "@/api/integrations";
 import { 
   Crown, 
   Plus, 
@@ -35,6 +34,7 @@ export default function Admin() {
   const [users, setUsers] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
+  const [editingVideo, setEditingVideo] = useState(null);
   const [stats, setStats] = useState({
     totalVideos: 0,
     totalRevenue: 0,
@@ -77,6 +77,7 @@ export default function Admin() {
 
   const handleVideoUploaded = () => {
     setShowUploadModal(false);
+    setEditingVideo(null);
     loadAdminData();
   };
 
@@ -111,7 +112,10 @@ export default function Admin() {
             </div>
           </div>
           <Button
-            onClick={() => setShowUploadModal(true)}
+            onClick={() => {
+              setEditingVideo(null);
+              setShowUploadModal(true);
+            }}
             className="bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500"
           >
             <Plus className="w-4 h-4 mr-2" />
@@ -239,6 +243,14 @@ export default function Admin() {
                             <Button
                               variant="ghost"
                               size="icon"
+                              onClick={() => setEditingVideo(video)}
+                              className="text-slate-400 hover:text-blue-400"
+                            >
+                              <Edit className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
                               onClick={() => toggleVideoStatus(video)}
                               className="text-slate-400 hover:text-white"
                             >
@@ -357,10 +369,14 @@ export default function Admin() {
           </TabsContent>
         </Tabs>
 
-        {/* Upload Modal */}
-        {showUploadModal && (
-          <VideoUploadModal 
-            onClose={() => setShowUploadModal(false)}
+        {/* Upload/Edit Modal */}
+        {(showUploadModal || editingVideo) && (
+          <VideoUploadModal
+            video={editingVideo}
+            onClose={() => {
+              setShowUploadModal(false);
+              setEditingVideo(null);
+            }}
             onVideoUploaded={handleVideoUploaded}
           />
         )}

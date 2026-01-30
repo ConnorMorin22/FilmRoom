@@ -395,6 +395,13 @@ exports.updateVideo = async (req, res) => {
       return acc;
     }, {});
 
+    if (req.body?.s3Key) {
+      updates.videoKey = req.body.s3Key;
+      if (!updates.video_url) {
+        updates.video_url = buildPublicUrl(getBucketName(), req.body.s3Key);
+      }
+    }
+
     const video = await Video.findByIdAndUpdate(id, updates, {
       new: true,
       runValidators: true,

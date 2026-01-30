@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Video } from "@/api/entities";
 import { UploadFile } from "@/api/integrations";
 import { X, Upload, Play, Image as ImageIcon } from "lucide-react";
@@ -10,28 +10,53 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 
-export default function VideoUploadModal({ onClose, onVideoUploaded }) {
+const FILE_LIMITS = {
+  video_url: 200 * 1024 * 1024 * 1024, // 200GB
+  preview_url: 2 * 1024 * 1024 * 1024, // 2GB
+  thumbnail_url: 10 * 1024 * 1024, // 10MB
+  instructor_photo: 10 * 1024 * 1024, // 10MB
+};
+
+const formatBytes = (bytes) => {
+  if (!bytes) return "0 B";
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  const index = Math.min(
+    Math.floor(Math.log(bytes) / Math.log(1024)),
+    units.length - 1
+  );
+  const value = bytes / 1024 ** index;
+  return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
+};
+
+const buildInitialState = (video) => ({
+  title: video?.title || "",
+  description: video?.description || "",
+  category: video?.category || "offense",
+  instructor_name: video?.instructor_name || "",
+  instructor_bio: video?.instructor_bio || "",
+  instructor_photo: video?.instructor_photo || "",
+  video_url: video?.video_url || "",
+  s3Key: video?.videoKey || "",
+  stripeProductId: video?.stripeProductId || "",
+  preview_url: video?.preview_url || "",
+  thumbnail_url: video?.thumbnail_url || "",
+  duration: video?.duration?.toString() || "",
+  price: video?.price?.toString() || "",
+  skill_level: video?.skill_level || "all",
+  tags: Array.isArray(video?.tags) ? video.tags.join(", ") : "",
+  is_featured: Boolean(video?.is_featured),
+  is_active: video?.is_active !== false,
+});
+
+export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState("");
-  const [videoData, setVideoData] = useState({
-    title: "",
-    description: "",
-    category: "offense",
-    instructor_name: "",
-    instructor_bio: "",
-    instructor_photo: "",
-    video_url: "",
-    s3Key: "",
-    stripeProductId: "",
-    preview_url: "",
-    thumbnail_url: "",
-    duration: "",
-    price: "",
-    skill_level: "all",
-    tags: "",
-    is_featured: false,
-    is_active: true
-  });
+  const [videoData, setVideoData] = useState(buildInitialState(video));
+  const isEditMode = Boolean(video);
+
+  useEffect(() => {
+    setVideoData(buildInitialState(video));
+  }, [video]);
 
   const handleInputChange = (field, value) => {
     setVideoData(prev => ({
@@ -42,6 +67,13 @@ export default function VideoUploadModal({ onClose, onVideoUploaded }) {
 
   const handleFileUpload = async (file, field) => {
     setError("");
+    const limit = FILE_LIMITS[field];
+    if (limit && file.size > limit) {
+      setError(
+        `${field.replace("_", " ")} is too large. Max ${formatBytes(limit)}.`
+      );
+      return;
+    }
     try {
       const folder = field === "video_url" || field === "preview_url"
         ? "videos"
@@ -71,35 +103,56 @@ export default function VideoUploadModal({ onClose, onVideoUploaded }) {
         tags: videoData.tags ? videoData.tags.split(',').map(tag => tag.trim()) : []
       };
 
-      if (!processedData.s3Key) {
-        setError("Please upload the full video file before saving.");
-        return;
-      }
-
       if (!processedData.thumbnail_url || processedData.duration <= 0) {
         setError("Thumbnail and duration are required.");
         return;
       }
 
-      await Video.create({
-        title: processedData.title,
-        description: processedData.description,
-        s3Key: processedData.s3Key,
-        stripeProductId: processedData.stripeProductId,
-        price: processedData.price,
-        instructor: processedData.instructor_name,
-        category: processedData.category,
-        duration: processedData.duration,
-        thumbnail_url: processedData.thumbnail_url,
-        instructor_bio: processedData.instructor_bio,
-        instructor_photo: processedData.instructor_photo,
-        skill_level: processedData.skill_level,
-        tags: processedData.tags,
-        is_featured: processedData.is_featured,
-        is_active: processedData.is_active,
-        preview_url: processedData.preview_url,
-        video_url: processedData.video_url
-      });
+      if (isEditMode) {
+        await Video.update(video.id, {
+          title: processedData.title,
+          description: processedData.description,
+          s3Key: processedData.s3Key || undefined,
+          stripeProductId: processedData.stripeProductId,
+          price: processedData.price,
+          instructor_name: processedData.instructor_name,
+          category: processedData.category,
+          duration: processedData.duration,
+          thumbnail_url: processedData.thumbnail_url,
+          instructor_bio: processedData.instructor_bio,
+          instructor_photo: processedData.instructor_photo,
+          skill_level: processedData.skill_level,
+          tags: processedData.tags,
+          is_featured: processedData.is_featured,
+          is_active: processedData.is_active,
+          preview_url: processedData.preview_url,
+          video_url: processedData.video_url,
+        });
+      } else {
+        if (!processedData.s3Key) {
+          setError("Please upload the full video file before saving.");
+          return;
+        }
+        await Video.create({
+          title: processedData.title,
+          description: processedData.description,
+          s3Key: processedData.s3Key,
+          stripeProductId: processedData.stripeProductId,
+          price: processedData.price,
+          instructor: processedData.instructor_name,
+          category: processedData.category,
+          duration: processedData.duration,
+          thumbnail_url: processedData.thumbnail_url,
+          instructor_bio: processedData.instructor_bio,
+          instructor_photo: processedData.instructor_photo,
+          skill_level: processedData.skill_level,
+          tags: processedData.tags,
+          is_featured: processedData.is_featured,
+          is_active: processedData.is_active,
+          preview_url: processedData.preview_url,
+          video_url: processedData.video_url,
+        });
+      }
       onVideoUploaded();
     } catch (error) {
       console.error("Error creating video:", error);
@@ -133,6 +186,11 @@ export default function VideoUploadModal({ onClose, onVideoUploaded }) {
               {error}
             </div>
           )}
+          <div className="text-xs text-slate-400">
+            File limits: Video up to {formatBytes(FILE_LIMITS.video_url)} ·
+            Preview up to {formatBytes(FILE_LIMITS.preview_url)} · Images up to{" "}
+            {formatBytes(FILE_LIMITS.thumbnail_url)}
+          </div>
           <form onSubmit={handleSubmit} className="space-y-6">
             {/* Basic Info */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
