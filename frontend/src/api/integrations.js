@@ -5,21 +5,33 @@ export const SendEmail = null;
 import { api } from "./customClient";
 
 export const UploadFile = async ({ file, folder }) => {
+  const contentType = file.type || "application/octet-stream";
   const { data } = await api.post("/admin/videos/upload", {
     filename: file.name,
-    contentType: file.type,
+    contentType,
     folder,
   });
 
   const uploadResponse = await fetch(data.uploadUrl, {
     method: "PUT",
     headers: {
-      "Content-Type": file.type,
+      "Content-Type": contentType,
     },
     body: file,
   });
 
   if (!uploadResponse.ok) {
+    let errorBody = "";
+    try {
+      errorBody = await uploadResponse.text();
+    } catch (error) {
+      console.warn("Failed to read S3 error body:", error);
+    }
+    console.error("S3 upload failed", {
+      status: uploadResponse.status,
+      statusText: uploadResponse.statusText,
+      errorBody,
+    });
     throw new Error("Failed to upload file to S3");
   }
 
