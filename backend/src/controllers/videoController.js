@@ -45,12 +45,47 @@ const generateSignedUrl = (videoKey) => {
   return s3.getSignedUrl("getObject", params);
 };
 
+const getS3KeyFromUrl = (url) => {
+  if (!url || typeof url !== "string") return null;
+  if (!process.env.S3_BUCKET_NAME) return null;
+  try {
+    const parsed = new URL(url);
+    const bucketHost = `${process.env.S3_BUCKET_NAME}.s3.`;
+    if (!parsed.hostname.startsWith(bucketHost)) {
+      return null;
+    }
+    const key = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
+    return key || null;
+  } catch (error) {
+    return null;
+  }
+};
+
+const maybeSignImageUrl = (url) => {
+  const key = getS3KeyFromUrl(url);
+  if (!key) return url;
+  return s3.getSignedUrl("getObject", {
+    Bucket: process.env.S3_BUCKET_NAME,
+    Key: key,
+    Expires: 60 * 60,
+  });
+};
+
+const mapVideoMediaUrls = (video) => ({
+  ...video,
+  thumbnail_url: maybeSignImageUrl(video.thumbnail_url),
+  instructor_photo: maybeSignImageUrl(video.instructor_photo),
+});
+
 // @desc    Get all videos
 // @route   GET /api/videos
 exports.getAllVideos = async (req, res) => {
   try {
     const videos = await Video.find();
-    res.json({ success: true, videos });
+    const payload = videos.map((video) =>
+      mapVideoMediaUrls(video.toObject())
+    );
+    res.json({ success: true, videos: payload });
   } catch (error) {
     console.error("Get videos error:", error);
     res.status(500).json({ error: "Error fetching videos" });
@@ -67,7 +102,7 @@ exports.getVideo = async (req, res) => {
       return res.status(404).json({ error: "Video not found" });
     }
 
-    res.json({ success: true, video });
+    res.json({ success: true, video: mapVideoMediaUrls(video.toObject()) });
   } catch (error) {
     console.error("Get video error:", error);
     res.status(500).json({ error: "Error fetching video" });
@@ -82,7 +117,9 @@ exports.getMyLibrary = async (req, res) => {
       "video"
     );
 
-    const videos = purchases.map((p) => p.video);
+    const videos = purchases.map((p) =>
+      p.video ? mapVideoMediaUrls(p.video.toObject()) : p.video
+    );
 
     res.json({ success: true, videos });
   } catch (error) {
