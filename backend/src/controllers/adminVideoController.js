@@ -1,6 +1,6 @@
 const path = require("path");
-const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
-const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
+const { S3Client } = require("@aws-sdk/client-s3");
+const { createPresignedPost } = require("@aws-sdk/s3-presigned-post");
 const Video = require("../models/Video");
 
 const getRegion = () =>
@@ -50,12 +50,10 @@ exports.getUploadUrl = async (req, res) => {
       return res.status(500).json({ error: "S3 credentials not available" });
     }
 
-    const command = new PutObjectCommand({
+    const { url: uploadUrl, fields } = await createPresignedPost(s3Client, {
       Bucket: bucket,
       Key: key,
-    });
-    const uploadUrl = await getSignedUrl(s3Client, command, {
-      expiresIn: 300,
+      Expires: 300,
     });
     const encodedKey = encodeURIComponent(key).replace(/%2F/g, "/");
 
@@ -65,18 +63,20 @@ exports.getUploadUrl = async (req, res) => {
       region: getRegion(),
       contentType,
       uploadUrl,
-      sdk: "v3",
+      sdk: "v3-post",
     });
 
-    if (!uploadUrl.includes(encodedKey) || !uploadUrl.includes(bucket)) {
+    if (!uploadUrl.includes(bucket) || fields?.key !== key) {
       return res.status(500).json({
-        error: "Presigned URL is missing bucket or object key",
+        error: "Presigned upload data is missing bucket or object key",
         uploadUrl,
+        fields,
       });
     }
 
     return res.json({
       uploadUrl,
+      fields,
       s3Key: key,
       bucket,
       fileUrl: buildPublicUrl(bucket, key),

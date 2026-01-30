@@ -12,13 +12,26 @@ export const UploadFile = async ({ file, folder }) => {
     folder,
   });
 
-  const uploadResponse = await fetch(data.uploadUrl, {
-    method: "PUT",
-    headers: {
-      "Content-Type": contentType,
-    },
-    body: file,
-  });
+  let uploadResponse;
+  if (data.fields) {
+    const formData = new FormData();
+    Object.entries(data.fields).forEach(([key, value]) => {
+      formData.append(key, value);
+    });
+    formData.append("file", file);
+    uploadResponse = await fetch(data.uploadUrl, {
+      method: "POST",
+      body: formData,
+    });
+  } else {
+    uploadResponse = await fetch(data.uploadUrl, {
+      method: "PUT",
+      headers: {
+        "Content-Type": contentType,
+      },
+      body: file,
+    });
+  }
 
   if (!uploadResponse.ok) {
     let errorBody = "";
