@@ -1,5 +1,44 @@
 const User = require("../models/User");
 const jwt = require("jsonwebtoken");
+const AWS = require("aws-sdk");
+
+const s3 = new AWS.S3({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  region: process.env.AWS_REGION,
+});
+
+const getS3KeyFromUrl = (url) => {
+  if (!url || typeof url !== "string") return null;
+  if (!process.env.S3_BUCKET_NAME) return null;
+  try {
+    const parsed = new URL(url);
+    const bucketHost = `${process.env.S3_BUCKET_NAME}.s3.`;
+    if (!parsed.hostname.startsWith(bucketHost)) {
+      return null;
+    }
+    const key = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
+    return key || null;
+  } catch (error) {
+    return null;
+  }
+};
+
+const maybeSignImageUrl = (url) => {
+  const key = getS3KeyFromUrl(url);
+  if (!key) return url;
+  return s3.getSignedUrl("getObject", {
+    Bucket: process.env.S3_BUCKET_NAME,
+    Key: key,
+    Expires: 60 * 60,
+  });
+};
+
+const mapVideoMediaUrls = (video) => ({
+  ...video,
+  thumbnail_url: maybeSignImageUrl(video.thumbnail_url),
+  instructor_photo: maybeSignImageUrl(video.instructor_photo),
+});
 
 // Generate JWT Token
 const generateToken = (userId) => {
@@ -112,12 +151,15 @@ exports.getMe = async (req, res) => {
     // req.user is set by auth middleware
     // Populate purchasedVideos to get full video objects instead of just IDs
     const user = await User.findById(req.user._id).populate("purchasedVideos");
+    const purchasedVideos = (user.purchasedVideos || []).map((video) =>
+      video ? mapVideoMediaUrls(video.toObject()) : video
+    );
 
     res.json({
       id: user._id,
       name: user.name,
       email: user.email,
-      purchasedVideos: user.purchasedVideos,
+      purchasedVideos,
       role: user.role,
     });
   } catch (error) {

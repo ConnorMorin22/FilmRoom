@@ -50,6 +50,8 @@ const buildInitialState = (video) => ({
 
 export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
   const [isUploading, setIsUploading] = useState(false);
+  const [isFileUploading, setIsFileUploading] = useState(false);
+  const [uploadingField, setUploadingField] = useState("");
   const [error, setError] = useState("");
   const [videoData, setVideoData] = useState(buildInitialState(video));
   const isEditMode = Boolean(video);
@@ -74,6 +76,8 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
       );
       return;
     }
+    setIsFileUploading(true);
+    setUploadingField(field);
     try {
       const folder = field === "video_url" || field === "preview_url"
         ? "videos"
@@ -87,6 +91,9 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
     } catch (error) {
       console.error("Error uploading file:", error);
       setError("File upload failed. Please try again.");
+    } finally {
+      setIsFileUploading(false);
+      setUploadingField("");
     }
   };
 
@@ -169,7 +176,9 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
     <div className="fixed inset-0 bg-black/50 backdrop-blur flex items-center justify-center z-50 p-4">
       <Card className="bg-slate-800 border-slate-700 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className="text-white">Upload New Video</CardTitle>
+          <CardTitle className="text-white">
+            {isEditMode ? "Edit Video" : "Upload New Video"}
+          </CardTitle>
           <Button
             variant="ghost"
             size="icon"
@@ -184,6 +193,11 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
           {error && (
             <div className="bg-red-900/30 border border-red-700 text-red-200 text-sm px-4 py-2 rounded">
               {error}
+            </div>
+          )}
+          {isFileUploading && (
+            <div className="bg-blue-900/30 border border-blue-700 text-blue-200 text-sm px-4 py-2 rounded">
+              Uploading {uploadingField.replace("_", " ")}...
             </div>
           )}
           <div className="text-xs text-slate-400">
@@ -404,7 +418,7 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
               </Button>
               <Button
                 type="submit"
-                disabled={isUploading}
+                disabled={isUploading || isFileUploading}
                 className="bg-blue-600 hover:bg-blue-700"
               >
                 {isUploading ? (
@@ -415,7 +429,7 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
                 ) : (
                   <>
                     <Upload className="w-4 h-4 mr-2" />
-                    Create Video
+                    {isEditMode ? "Save Changes" : "Create Video"}
                   </>
                 )}
               </Button>
