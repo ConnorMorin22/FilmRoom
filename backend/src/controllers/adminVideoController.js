@@ -66,10 +66,6 @@ exports.getUploadUrl = async (req, res) => {
       s3Client,
       postOptions
     );
-      Bucket: bucket,
-      Key: key,
-      Expires: 300,
-    });
     const encodedKey = encodeURIComponent(key).replace(/%2F/g, "/");
 
     console.log("S3 presign", {
