@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Video } from "@/api/entities";
 import { UploadFile } from "@/api/integrations";
 import { X, Upload, Play, Image as ImageIcon } from "lucide-react";
@@ -28,6 +28,14 @@ const formatBytes = (bytes) => {
   return `${value.toFixed(value >= 10 || index === 0 ? 0 : 1)} ${units[index]}`;
 };
 
+const formatDuration = (seconds) => {
+  if (!Number.isFinite(seconds) || seconds <= 0) return "";
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  if (mins <= 0) return `${secs}s`;
+  return `${mins}m ${secs}s`;
+};
+
 const buildInitialState = (video) => ({
   title: video?.title || "",
   description: video?.description || "",
@@ -52,12 +60,16 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
   const [isUploading, setIsUploading] = useState(false);
   const [isFileUploading, setIsFileUploading] = useState(false);
   const [uploadingField, setUploadingField] = useState("");
+  const [uploadProgress, setUploadProgress] = useState(null);
   const [error, setError] = useState("");
   const [videoData, setVideoData] = useState(buildInitialState(video));
   const isEditMode = Boolean(video);
+  const initialStateRef = useRef(buildInitialState(video));
 
   useEffect(() => {
-    setVideoData(buildInitialState(video));
+    const nextState = buildInitialState(video);
+    setVideoData(nextState);
+    initialStateRef.current = nextState;
   }, [video]);
 
   const handleInputChange = (field, value) => {
@@ -78,11 +90,26 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
     }
     setIsFileUploading(true);
     setUploadingField(field);
+    setUploadProgress({
+      loaded: 0,
+      total: file.size,
+      startedAt: Date.now(),
+    });
     try {
       const folder = field === "video_url" || field === "preview_url"
         ? "videos"
         : "images";
-      const { file_url, s3Key } = await UploadFile({ file, folder });
+      const { file_url, s3Key } = await UploadFile({
+        file,
+        folder,
+        onProgress: (progress) => {
+          setUploadProgress((prev) => ({
+            loaded: progress.loaded,
+            total: progress.total,
+            startedAt: prev?.startedAt || Date.now(),
+          }));
+        },
+      });
       setVideoData(prev => ({
         ...prev,
         [field]: file_url,
@@ -94,6 +121,7 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
     } finally {
       setIsFileUploading(false);
       setUploadingField("");
+      setUploadProgress(null);
     }
   };
 
@@ -116,6 +144,14 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
       }
 
       if (isEditMode) {
+        const initialData = initialStateRef.current;
+        const hasChanges = Object.keys(processedData).some(
+          (key) => processedData[key] !== initialData[key]
+        );
+        if (!hasChanges) {
+          setError("No changes to save. Select a new file or edit fields.");
+          return;
+        }
         await Video.update(video.id, {
           title: processedData.title,
           description: processedData.description,
@@ -197,7 +233,44 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
           )}
           {isFileUploading && (
             <div className="bg-blue-900/30 border border-blue-700 text-blue-200 text-sm px-4 py-2 rounded">
-              Uploading {uploadingField.replace("_", " ")}...
+              <div className="flex items-center justify-between gap-4">
+                <span>Uploading {uploadingField.replace("_", " ")}...</span>
+                {uploadProgress && (
+                  <span className="text-xs">
+                    {formatBytes(uploadProgress.loaded)} /{" "}
+                    {formatBytes(uploadProgress.total)}
+                  </span>
+                )}
+              </div>
+              {uploadProgress && uploadProgress.total > 0 && (
+                <div className="mt-2">
+                  <div className="h-2 w-full rounded bg-blue-900/50">
+                    <div
+                      className="h-2 rounded bg-blue-400"
+                      style={{
+                        width: `${Math.min(
+                          100,
+                          (uploadProgress.loaded / uploadProgress.total) * 100
+                        )}%`,
+                      }}
+                    />
+                  </div>
+                  <div className="mt-1 text-xs text-blue-100/80">
+                    {(() => {
+                      const elapsed =
+                        (Date.now() - uploadProgress.startedAt) / 1000;
+                      const speed =
+                        elapsed > 0 ? uploadProgress.loaded / elapsed : 0;
+                      const remaining =
+                        speed > 0
+                          ? (uploadProgress.total - uploadProgress.loaded) /
+                            speed
+                          : 0;
+                      return `~${formatDuration(remaining)} remaining`;
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
           )}
           <div className="text-xs text-slate-400">
@@ -297,6 +370,11 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
             <div className="space-y-4">
               <div>
                 <Label htmlFor="video_url" className="text-white">Full Video File</Label>
+                {isEditMode && (
+                  <p className="text-xs text-slate-400 mt-1">
+                    Select a new file to replace the current video.
+                  </p>
+                )}
                 <Input
                   id="video_url"
                   type="file"

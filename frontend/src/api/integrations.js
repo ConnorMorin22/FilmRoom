@@ -4,7 +4,33 @@ export const InvokeLLM = null;
 export const SendEmail = null;
 import { api } from "./customClient";
 
-const uploadMultipartFile = async ({ file, folder, contentType }) => {
+const uploadWithProgress = (url, method, body, headers, onProgress) =>
+  new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open(method, url);
+    if (headers) {
+      Object.entries(headers).forEach(([key, value]) => {
+        xhr.setRequestHeader(key, value);
+      });
+    }
+    if (xhr.upload && onProgress) {
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable) {
+          onProgress(event.loaded, event.total);
+        }
+      };
+    }
+    xhr.onload = () => resolve(xhr);
+    xhr.onerror = () => reject(new Error("Upload failed"));
+    xhr.send(body);
+  });
+
+const uploadMultipartFile = async ({
+  file,
+  folder,
+  contentType,
+  onProgress,
+}) => {
   const initResponse = await api.post("/admin/videos/multipart/init", {
     filename: file.name,
     contentType,
@@ -14,6 +40,7 @@ const uploadMultipartFile = async ({ file, folder, contentType }) => {
   const { uploadId, s3Key, fileUrl } = initResponse.data;
   const chunkSize = 100 * 1024 * 1024; // 100MB
   const parts = [];
+  let uploadedBytes = 0;
 
   try {
     let partNumber = 1;
@@ -27,20 +54,34 @@ const uploadMultipartFile = async ({ file, folder, contentType }) => {
         partNumber,
       });
 
-      const uploadResponse = await fetch(data.uploadUrl, {
-        method: "PUT",
-        body: chunk,
-      });
+      const uploadResponse = await uploadWithProgress(
+        data.uploadUrl,
+        "PUT",
+        chunk,
+        null,
+        onProgress
+          ? (loaded, total) => {
+              onProgress({
+                loaded: uploadedBytes + loaded,
+                total: file.size,
+                part: partNumber,
+                partLoaded: loaded,
+                partTotal: total,
+              });
+            }
+          : null
+      );
 
-      if (!uploadResponse.ok) {
+      if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
         throw new Error(`Failed to upload part ${partNumber}`);
       }
 
-      const etag = uploadResponse.headers.get("ETag");
+      const etag = uploadResponse.getResponseHeader("ETag");
       if (!etag) {
         throw new Error(`Missing ETag for part ${partNumber}`);
       }
 
+      uploadedBytes += chunk.size;
       parts.push({ ETag: etag, PartNumber: partNumber });
       partNumber += 1;
     }
@@ -65,12 +106,12 @@ const uploadMultipartFile = async ({ file, folder, contentType }) => {
   }
 };
 
-export const UploadFile = async ({ file, folder }) => {
+export const UploadFile = async ({ file, folder, onProgress }) => {
   const contentType = file.type || "application/octet-stream";
   const multipartThreshold = 5 * 1024 * 1024 * 1024; // 5GB S3 single upload limit
 
   if (file.size > multipartThreshold) {
-    return uploadMultipartFile({ file, folder, contentType });
+    return uploadMultipartFile({ file, folder, contentType, onProgress });
   }
 
   const { data } = await api.post("/admin/videos/upload", {
@@ -86,24 +127,27 @@ export const UploadFile = async ({ file, folder }) => {
       formData.append(key, value);
     });
     formData.append("file", file);
-    uploadResponse = await fetch(data.uploadUrl, {
-      method: "POST",
-      body: formData,
-    });
+    uploadResponse = await uploadWithProgress(
+      data.uploadUrl,
+      "POST",
+      formData,
+      null,
+      onProgress ? (loaded, total) => onProgress({ loaded, total }) : null
+    );
   } else {
-    uploadResponse = await fetch(data.uploadUrl, {
-      method: "PUT",
-      headers: {
-        "Content-Type": contentType,
-      },
-      body: file,
-    });
+    uploadResponse = await uploadWithProgress(
+      data.uploadUrl,
+      "PUT",
+      file,
+      { "Content-Type": contentType },
+      onProgress ? (loaded, total) => onProgress({ loaded, total }) : null
+    );
   }
 
-  if (!uploadResponse.ok) {
+  if (uploadResponse.status < 200 || uploadResponse.status >= 300) {
     let errorBody = "";
     try {
-      errorBody = await uploadResponse.text();
+      errorBody = uploadResponse.responseText || "";
     } catch (error) {
       console.warn("Failed to read S3 error body:", error);
     }
