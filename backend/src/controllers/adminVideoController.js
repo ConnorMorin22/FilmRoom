@@ -2,14 +2,26 @@ const AWS = require("aws-sdk");
 const path = require("path");
 const Video = require("../models/Video");
 
-const s3 = new AWS.S3();
+const getRegion = () =>
+  process.env.AWS_REGION ||
+  process.env.AWS_DEFAULT_REGION ||
+  process.env.S3_REGION ||
+  "us-east-2";
 
-const getBucketName = () =>
-  process.env.S3_BUCKET_NAME || "filmroom-prod-videos";
+const getBucketName = () => {
+  const bucket = process.env.S3_BUCKET_NAME || "filmroom-prod-videos";
+  return bucket && bucket.trim() ? bucket.trim() : "filmroom-prod-videos";
+};
+
+const s3 = new AWS.S3({
+  region: getRegion(),
+  signatureVersion: "v4",
+  s3ForcePathStyle: false,
+});
 
 const buildPublicUrl = (bucket, key) => {
   const encodedKey = encodeURIComponent(key).replace(/%2F/g, "/");
-  return `https://${bucket}.s3.amazonaws.com/${encodedKey}`;
+  return `https://${bucket}.s3.${getRegion()}.amazonaws.com/${encodedKey}`;
 };
 
 const sanitizeFileName = (fileName) =>
