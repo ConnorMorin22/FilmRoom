@@ -21,8 +21,16 @@ const app = express();
 app.use(
   cors({
     origin: (origin, callback) => {
+      const normalizeOrigin = (value) => {
+        if (!value) return null;
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+        if (/^https?:\/\//i.test(trimmed)) return trimmed;
+        return `https://${trimmed}`;
+      };
+
       const allowedOrigins = [
-        process.env.FRONTEND_URL,
+        normalizeOrigin(process.env.FRONTEND_URL),
         "http://localhost:5173",
         "http://localhost:5174",
         "http://localhost:5175",
