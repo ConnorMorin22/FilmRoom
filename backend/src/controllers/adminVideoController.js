@@ -34,10 +34,8 @@ exports.getUploadUrl = async (req, res) => {
   try {
     const { filename, contentType, folder } = req.body;
 
-    if (!filename || !contentType) {
-      return res
-        .status(400)
-        .json({ error: "filename and contentType are required" });
+    if (!filename) {
+      return res.status(400).json({ error: "filename is required" });
     }
 
     const bucket = getBucketName();
@@ -55,7 +53,6 @@ exports.getUploadUrl = async (req, res) => {
     const command = new PutObjectCommand({
       Bucket: bucket,
       Key: key,
-      ContentType: contentType,
     });
     const uploadUrl = await getSignedUrl(s3Client, command, {
       expiresIn: 300,
@@ -66,6 +63,7 @@ exports.getUploadUrl = async (req, res) => {
       bucket,
       key,
       region: getRegion(),
+      contentType,
       uploadUrl,
       sdk: "v3",
     });
