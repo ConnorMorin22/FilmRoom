@@ -1,6 +1,13 @@
 const path = require("path");
-const { S3Client } = require("@aws-sdk/client-s3");
+const {
+  S3Client,
+  CreateMultipartUploadCommand,
+  UploadPartCommand,
+  CompleteMultipartUploadCommand,
+  AbortMultipartUploadCommand,
+} = require("@aws-sdk/client-s3");
 const { createPresignedPost } = require("@aws-sdk/s3-presigned-post");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const Video = require("../models/Video");
 
 const getRegion = () =>
@@ -28,6 +35,16 @@ const buildPublicUrl = (bucket, key) => {
 const sanitizeFileName = (fileName) =>
   path.basename(fileName).replace(/\s+/g, "_");
 
+const ensureS3Credentials = async () => {
+  try {
+    await s3Client.config.credentials();
+    return true;
+  } catch (credError) {
+    console.error("S3 credentials error:", credError);
+    return false;
+  }
+};
+
 // @desc    Get presigned S3 upload URL
 // @route   POST /api/admin/videos/upload
 exports.getUploadUrl = async (req, res) => {
@@ -43,10 +60,8 @@ exports.getUploadUrl = async (req, res) => {
     const prefix = folder ? `${folder.replace(/\/+$/g, "")}/` : "uploads/";
     const key = `${prefix}${Date.now()}_${safeName}`;
 
-    try {
-      await s3Client.config.credentials();
-    } catch (credError) {
-      console.error("S3 credentials error:", credError);
+    const hasCredentials = await ensureS3Credentials();
+    if (!hasCredentials) {
       return res.status(500).json({ error: "S3 credentials not available" });
     }
 
@@ -95,6 +110,182 @@ exports.getUploadUrl = async (req, res) => {
   } catch (error) {
     console.error("Presign upload error:", error);
     return res.status(500).json({ error: "Error generating upload URL" });
+  }
+};
+
+// @desc    Init multipart upload
+// @route   POST /api/admin/videos/multipart/init
+exports.initMultipartUpload = async (req, res) => {
+  try {
+    const { filename, contentType, folder } = req.body;
+
+    if (!filename) {
+      return res.status(400).json({ error: "filename is required" });
+    }
+
+    const hasCredentials = await ensureS3Credentials();
+    if (!hasCredentials) {
+      return res.status(500).json({ error: "S3 credentials not available" });
+    }
+
+    const bucket = getBucketName();
+    const safeName = sanitizeFileName(filename);
+    const prefix = folder ? `${folder.replace(/\/+$/g, "")}/` : "uploads/";
+    const key = `${prefix}${Date.now()}_${safeName}`;
+
+    const command = new CreateMultipartUploadCommand({
+      Bucket: bucket,
+      Key: key,
+      ContentType: contentType || undefined,
+    });
+
+    const { UploadId: uploadId } = await s3Client.send(command);
+    if (!uploadId) {
+      return res.status(500).json({ error: "Failed to start multipart upload" });
+    }
+
+    console.log("S3 multipart init", {
+      bucket,
+      key,
+      uploadId,
+      region: getRegion(),
+      contentType,
+    });
+
+    return res.json({
+      uploadId,
+      s3Key: key,
+      bucket,
+      fileUrl: buildPublicUrl(bucket, key),
+    });
+  } catch (error) {
+    console.error("Multipart init error:", error);
+    return res.status(500).json({ error: "Error starting multipart upload" });
+  }
+};
+
+// @desc    Presign a multipart upload part
+// @route   POST /api/admin/videos/multipart/presign
+exports.presignMultipartPart = async (req, res) => {
+  try {
+    const { uploadId, s3Key, partNumber } = req.body;
+
+    if (!uploadId || !s3Key || !partNumber) {
+      return res.status(400).json({
+        error: "uploadId, s3Key, and partNumber are required",
+      });
+    }
+
+    const parsedPart = Number(partNumber);
+    if (!Number.isInteger(parsedPart) || parsedPart < 1 || parsedPart > 10000) {
+      return res.status(400).json({ error: "partNumber must be 1-10000" });
+    }
+
+    const hasCredentials = await ensureS3Credentials();
+    if (!hasCredentials) {
+      return res.status(500).json({ error: "S3 credentials not available" });
+    }
+
+    const bucket = getBucketName();
+    const command = new UploadPartCommand({
+      Bucket: bucket,
+      Key: s3Key,
+      UploadId: uploadId,
+      PartNumber: parsedPart,
+    });
+
+    const uploadUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: 300,
+    });
+
+    console.log("S3 multipart presign", {
+      bucket,
+      key: s3Key,
+      uploadId,
+      partNumber: parsedPart,
+    });
+
+    return res.json({ uploadUrl });
+  } catch (error) {
+    console.error("Multipart presign error:", error);
+    return res.status(500).json({ error: "Error presigning upload part" });
+  }
+};
+
+// @desc    Complete multipart upload
+// @route   POST /api/admin/videos/multipart/complete
+exports.completeMultipartUpload = async (req, res) => {
+  try {
+    const { uploadId, s3Key, parts } = req.body;
+
+    if (!uploadId || !s3Key || !Array.isArray(parts) || parts.length === 0) {
+      return res.status(400).json({
+        error: "uploadId, s3Key, and parts are required",
+      });
+    }
+
+    const bucket = getBucketName();
+    const normalizedParts = parts
+      .map((part) => ({
+        ETag: part.ETag,
+        PartNumber: Number(part.PartNumber),
+      }))
+      .filter((part) => part.ETag && Number.isInteger(part.PartNumber))
+      .sort((a, b) => a.PartNumber - b.PartNumber);
+
+    if (!normalizedParts.length) {
+      return res.status(400).json({ error: "No valid parts provided" });
+    }
+
+    const command = new CompleteMultipartUploadCommand({
+      Bucket: bucket,
+      Key: s3Key,
+      UploadId: uploadId,
+      MultipartUpload: { Parts: normalizedParts },
+    });
+
+    await s3Client.send(command);
+
+    console.log("S3 multipart complete", {
+      bucket,
+      key: s3Key,
+      uploadId,
+      parts: normalizedParts.length,
+    });
+
+    return res.json({
+      success: true,
+      fileUrl: buildPublicUrl(bucket, s3Key),
+    });
+  } catch (error) {
+    console.error("Multipart complete error:", error);
+    return res.status(500).json({ error: "Error completing multipart upload" });
+  }
+};
+
+// @desc    Abort multipart upload
+// @route   POST /api/admin/videos/multipart/abort
+exports.abortMultipartUpload = async (req, res) => {
+  try {
+    const { uploadId, s3Key } = req.body;
+
+    if (!uploadId || !s3Key) {
+      return res.status(400).json({ error: "uploadId and s3Key are required" });
+    }
+
+    const bucket = getBucketName();
+    const command = new AbortMultipartUploadCommand({
+      Bucket: bucket,
+      Key: s3Key,
+      UploadId: uploadId,
+    });
+
+    await s3Client.send(command);
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("Multipart abort error:", error);
+    return res.status(500).json({ error: "Error aborting multipart upload" });
   }
 };
 
