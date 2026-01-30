@@ -1,5 +1,6 @@
-const AWS = require("aws-sdk");
 const path = require("path");
+const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
+const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const Video = require("../models/Video");
 
 const getRegion = () =>
@@ -13,12 +14,9 @@ const getBucketName = () => {
   return bucket && bucket.trim() ? bucket.trim() : "filmroom-prod-videos";
 };
 
-const createS3Client = ({ forcePathStyle = false } = {}) =>
-  new AWS.S3({
-    region: getRegion(),
-    signatureVersion: "v4",
-    s3ForcePathStyle: forcePathStyle,
-  });
+const s3Client = new S3Client({
+  region: getRegion(),
+});
 
 const buildPublicUrl = (bucket, key) => {
   const encodedKey = encodeURIComponent(key).replace(/%2F/g, "/");
@@ -45,41 +43,34 @@ exports.getUploadUrl = async (req, res) => {
     const prefix = folder ? `${folder.replace(/\/+$/g, "")}/` : "uploads/";
     const key = `${prefix}${Date.now()}_${safeName}`;
 
-    const virtualClient = createS3Client({ forcePathStyle: false });
-    let uploadUrl = virtualClient.getSignedUrl("putObject", {
+    try {
+      await s3Client.config.credentials();
+    } catch (credError) {
+      console.error("S3 credentials error:", credError);
+      return res.status(500).json({ error: "S3 credentials not available" });
+    }
+
+    const command = new PutObjectCommand({
       Bucket: bucket,
       Key: key,
       ContentType: contentType,
-      Expires: 300,
     });
-
-    let urlStyle = "virtual";
+    const uploadUrl = await getSignedUrl(s3Client, command, {
+      expiresIn: 300,
+    });
     const encodedKey = encodeURIComponent(key).replace(/%2F/g, "/");
-    const hasBucketHost = uploadUrl.includes(`${bucket}.s3.`);
-    const hasKeyPath = uploadUrl.includes(`/${encodedKey}`);
-
-    if (!hasBucketHost || !hasKeyPath) {
-      const pathClient = createS3Client({ forcePathStyle: true });
-      uploadUrl = pathClient.getSignedUrl("putObject", {
-        Bucket: bucket,
-        Key: key,
-        ContentType: contentType,
-        Expires: 300,
-      });
-      urlStyle = "path";
-    }
 
     console.log("S3 presign", {
       bucket,
       key,
       region: getRegion(),
       uploadUrl,
-      urlStyle,
+      sdk: "v3",
     });
 
-    if (!uploadUrl.includes(encodedKey)) {
+    if (!uploadUrl.includes(encodedKey) || !uploadUrl.includes(bucket)) {
       return res.status(500).json({
-        error: "Presigned URL is missing object key",
+        error: "Presigned URL is missing bucket or object key",
         uploadUrl,
       });
     }
