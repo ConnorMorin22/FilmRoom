@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Video } from "@/api/entities";
 import { UploadFile } from "@/api/integrations";
-import { X, Upload, Play, Image as ImageIcon } from "lucide-react";
+import { X, Upload, Play } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -36,6 +36,33 @@ const formatDuration = (seconds) => {
   return `${mins}m ${secs}s`;
 };
 
+const SOCIAL_FIELDS = [
+  { key: "instagram", label: "Instagram URL" },
+  { key: "twitter", label: "X/Twitter URL" },
+  { key: "youtube", label: "YouTube URL" },
+  { key: "tiktok", label: "TikTok URL" },
+];
+
+const normalizeSocials = (socialState) =>
+  SOCIAL_FIELDS.map((field) => ({
+    platform: field.key,
+    url: socialState?.[field.key]?.trim() || "",
+  })).filter((entry) => entry.url);
+
+const parseSocials = (socials) => {
+  const initial = SOCIAL_FIELDS.reduce((acc, field) => {
+    acc[field.key] = "";
+    return acc;
+  }, {});
+  if (!Array.isArray(socials)) return initial;
+  socials.forEach((social) => {
+    if (social?.platform && social?.url && initial[social.platform] !== undefined) {
+      initial[social.platform] = social.url;
+    }
+  });
+  return initial;
+};
+
 const buildInitialState = (video) => ({
   title: video?.title || "",
   description: video?.description || "",
@@ -43,6 +70,7 @@ const buildInitialState = (video) => ({
   instructor_name: video?.instructor_name || "",
   instructor_bio: video?.instructor_bio || "",
   instructor_photo: video?.instructor_photo || "",
+  instructor_socials: parseSocials(video?.instructor_socials),
   video_url: video?.video_url || "",
   s3Key: video?.videoKey || "",
   stripeProductId: video?.stripeProductId || "",
@@ -135,7 +163,8 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
         ...videoData,
         duration: parseFloat(videoData.duration) || 0,
         price: parseFloat(videoData.price) || 0,
-        tags: videoData.tags ? videoData.tags.split(',').map(tag => tag.trim()) : []
+        tags: videoData.tags ? videoData.tags.split(',').map(tag => tag.trim()) : [],
+        instructor_socials: normalizeSocials(videoData.instructor_socials),
       };
 
       if (!processedData.thumbnail_url || processedData.duration <= 0) {
@@ -164,6 +193,7 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
           thumbnail_url: processedData.thumbnail_url,
           instructor_bio: processedData.instructor_bio,
           instructor_photo: processedData.instructor_photo,
+          instructor_socials: processedData.instructor_socials,
           skill_level: processedData.skill_level,
           tags: processedData.tags,
           is_featured: processedData.is_featured,
@@ -188,6 +218,7 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
           thumbnail_url: processedData.thumbnail_url,
           instructor_bio: processedData.instructor_bio,
           instructor_photo: processedData.instructor_photo,
+          instructor_socials: processedData.instructor_socials,
           skill_level: processedData.skill_level,
           tags: processedData.tags,
           is_featured: processedData.is_featured,
@@ -364,6 +395,28 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
                 onChange={(e) => handleInputChange("instructor_bio", e.target.value)}
                 className="bg-slate-700 border-slate-600 text-white h-20"
               />
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {SOCIAL_FIELDS.map((field) => (
+                <div key={field.key}>
+                  <Label htmlFor={`social_${field.key}`} className="text-white">
+                    {field.label}
+                  </Label>
+                  <Input
+                    id={`social_${field.key}`}
+                    value={videoData.instructor_socials[field.key]}
+                    onChange={(e) =>
+                      handleInputChange("instructor_socials", {
+                        ...videoData.instructor_socials,
+                        [field.key]: e.target.value,
+                      })
+                    }
+                    placeholder="https://"
+                    className="bg-slate-700 border-slate-600 text-white"
+                  />
+                </div>
+              ))}
             </div>
 
             {/* Video Files */}

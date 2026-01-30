@@ -16,6 +16,12 @@ const videoSchema = new mongoose.Schema({
   },
   instructor_bio: String,
   instructor_photo: String,
+  instructor_socials: [
+    {
+      platform: String,
+      url: String,
+    },
+  ],
   thumbnail_url: {
     type: String,
     required: [true, "Please add a thumbnail"],

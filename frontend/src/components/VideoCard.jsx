@@ -1,5 +1,5 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Play, Clock, Star, Award } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -7,11 +7,12 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export default function VideoCard({ video, showAddToCart = true }) {
+  const navigate = useNavigate();
   const categoryColors = {
-    offense: "bg-red-100 text-red-800",
-    defense: "bg-blue-100 text-blue-800", 
-    faceoffs: "bg-purple-100 text-purple-800",
-    goalies: "bg-green-100 text-green-800"
+    offense: "bg-red-500/20 text-red-200",
+    defense: "bg-blue-500/20 text-blue-200",
+    faceoffs: "bg-purple-500/20 text-purple-200",
+    goalies: "bg-green-500/20 text-green-200",
   };
 
   const skillLevelColors = {
@@ -22,7 +23,10 @@ export default function VideoCard({ video, showAddToCart = true }) {
   };
 
   return (
-    <Card className="bg-slate-800 border-slate-700 hover:bg-slate-750 transition-all duration-300 group overflow-hidden">
+    <Card
+      className="bg-slate-800 border-slate-700 hover:bg-slate-750 transition-all duration-300 group overflow-hidden cursor-pointer"
+      onClick={() => navigate(createPageUrl(`VideoDetail?id=${video.id}`))}
+    >
       <div className="relative aspect-video">
         <img
           src={video.thumbnail_url || `https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=600&h=400&fit=crop`}
@@ -30,14 +34,6 @@ export default function VideoCard({ video, showAddToCart = true }) {
           className="w-full h-full object-cover"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
-        
-        <Link to={createPageUrl(`VideoDetail?id=${video.id}`)}>
-          <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40">
-            <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
-              <Play className="w-8 h-8 text-white ml-1" />
-            </div>
-          </div>
-        </Link>
 
         <div className="absolute top-4 left-4">
           <Badge className={categoryColors[video.category]}>
@@ -61,11 +57,9 @@ export default function VideoCard({ video, showAddToCart = true }) {
 
       <CardContent className="p-6">
         <div className="mb-4">
-          <Link to={createPageUrl(`VideoDetail?id=${video.id}`)}>
-            <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors mb-2">
-              {video.title}
-            </h3>
-          </Link>
+        <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors mb-2">
+          {video.title}
+        </h3>
           <p className="text-slate-400 line-clamp-2 mb-3">{video.description}</p>
         </div>
 
@@ -89,11 +83,15 @@ export default function VideoCard({ video, showAddToCart = true }) {
             ${video.price}
           </div>
           {showAddToCart && (
-            <Link to={createPageUrl(`VideoDetail?id=${video.id}`)}>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                View Details
-              </Button>
-            </Link>
+            <Button
+              className="bg-blue-600 hover:bg-blue-700 text-white"
+              onClick={(event) => {
+                event.stopPropagation();
+                navigate(createPageUrl(`VideoDetail?id=${video.id}`));
+              }}
+            >
+              View Details
+            </Button>
           )}
         </div>
       </CardContent>

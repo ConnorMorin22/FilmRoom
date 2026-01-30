@@ -69,10 +69,10 @@ export default function Library() {
   ];
 
   const categoryColors = {
-    offense: "bg-red-100 text-red-800",
-    defense: "bg-blue-100 text-blue-800",
-    faceoffs: "bg-purple-100 text-purple-800",
-    goalies: "bg-green-100 text-green-800",
+    offense: "bg-red-500/20 text-red-200",
+    defense: "bg-blue-500/20 text-blue-200",
+    faceoffs: "bg-purple-500/20 text-purple-200",
+    goalies: "bg-green-500/20 text-green-200",
   };
 
   const watchVideo = (video) => {
@@ -151,7 +151,8 @@ export default function Library() {
               {filteredVideos.map((video) => (
                 <Card
                   key={video._id}
-                  className="bg-slate-800 border-slate-700 hover:bg-slate-750 transition-all duration-300 group overflow-hidden"
+                  className="bg-slate-800 border-slate-700 hover:bg-slate-750 transition-all duration-300 group overflow-hidden cursor-pointer"
+                  onClick={() => watchVideo(video)}
                 >
                   <div className="relative aspect-video">
                     <img
@@ -164,14 +165,6 @@ export default function Library() {
                     />
                     <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
-                    <Button
-                      onClick={() => watchVideo(video)}
-                      className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center"
-                    >
-                      <div className="w-16 h-16 bg-white/20 backdrop-blur rounded-full flex items-center justify-center">
-                        <Play className="w-8 h-8 text-white ml-1" />
-                      </div>
-                    </Button>
 
                     <div className="absolute top-4 left-4">
                       <Badge className={categoryColors[video.category]}>
@@ -211,7 +204,10 @@ export default function Library() {
                       </div>
 
                       <Button
-                        onClick={() => watchVideo(video)}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          watchVideo(video);
+                        }}
                         className="bg-blue-600 hover:bg-blue-700 text-white"
                       >
                         <Play className="w-4 h-4 mr-2" />

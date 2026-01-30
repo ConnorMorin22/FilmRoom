@@ -120,10 +120,10 @@ export default function VideoDetail() {
   };
 
   const categoryColors = {
-    offense: "bg-red-100 text-red-800",
-    defense: "bg-blue-100 text-blue-800",
-    faceoffs: "bg-purple-100 text-purple-800",
-    goalies: "bg-green-100 text-green-800"
+    offense: "bg-red-500/20 text-red-200",
+    defense: "bg-blue-500/20 text-blue-200",
+    faceoffs: "bg-purple-500/20 text-purple-200",
+    goalies: "bg-green-500/20 text-green-200"
   };
 
   const skillLevelColors = {
@@ -261,21 +261,14 @@ export default function VideoDetail() {
             {/* Purchase Card */}
             <Card className="bg-slate-800 border-slate-700">
               <CardHeader>
-                <CardTitle className="text-2xl">
+                <CardTitle className="text-2xl text-white">
                   ${video.price}
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {hasPurchased ? (
                   <div className="text-center py-4">
-                    <CheckCircle className="w-12 h-12 text-green-400 mx-auto mb-3" />
-                    <h3 className="text-lg font-semibold text-green-400 mb-2">
-                      You own this video
-                    </h3>
-                    <p className="text-slate-400 text-sm mb-4">
-                      Access it anytime from your library
-                    </p>
-                    <Button 
+                    <Button
                       onClick={() => navigate(createPageUrl("Library"))}
                       className="w-full bg-green-600 hover:bg-green-700"
                     >
@@ -356,10 +349,31 @@ export default function VideoDetail() {
                   </div>
                 </div>
                 {video.instructor_bio && (
-                  <p className="text-slate-300 text-sm">
+                  <p className="text-slate-300 text-sm mb-4">
                     {video.instructor_bio}
                   </p>
                 )}
+                {Array.isArray(video.instructor_socials) &&
+                  video.instructor_socials.length > 0 && (
+                    <div className="space-y-2">
+                      <h4 className="text-sm font-semibold text-white">
+                        Connect
+                      </h4>
+                      <div className="flex flex-wrap gap-2">
+                        {video.instructor_socials.map((social) => (
+                          <a
+                            key={`${social.platform}-${social.url}`}
+                            href={social.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-sm text-slate-300 hover:text-white underline underline-offset-4"
+                          >
+                            {social.platform}
+                          </a>
+                        ))}
+                      </div>
+                    </div>
+                  )}
               </CardContent>
             </Card>
 
