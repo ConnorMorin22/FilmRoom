@@ -51,6 +51,13 @@ exports.getUploadUrl = async (req, res) => {
       Expires: 300,
     });
 
+    console.log("S3 presign", {
+      bucket,
+      key,
+      region: getRegion(),
+      uploadUrl,
+    });
+
     return res.json({
       uploadUrl,
       s3Key: key,
