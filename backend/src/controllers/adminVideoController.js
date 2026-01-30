@@ -16,6 +16,8 @@ const getBucketName = () => {
 
 const s3Client = new S3Client({
   region: getRegion(),
+  requestChecksumCalculation: "NEVER",
+  responseChecksumValidation: "NEVER",
 });
 
 const buildPublicUrl = (bucket, key) => {
