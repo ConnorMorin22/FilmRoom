@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { api } from "@/api/customClient";
+import { api, setAuthToken } from "@/api/customClient";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -18,10 +18,11 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      await api.post("/auth/login", {
+      const { data } = await api.post("/auth/login", {
         email,
         password,
       });
+      setAuthToken(data.token);
 
       const returnUrl = localStorage.getItem("filmroom_return_url") || "/";
       localStorage.removeItem("filmroom_return_url");

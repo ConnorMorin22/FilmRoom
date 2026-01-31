@@ -15,6 +15,23 @@ export const api = axios.create({
   withCredentials: true,
 });
 
+const TOKEN_KEY = "filmroom_token";
+
+export const setAuthToken = (token) => {
+  if (token) {
+    localStorage.setItem(TOKEN_KEY, token);
+    api.defaults.headers.common.Authorization = `Bearer ${token}`;
+  } else {
+    localStorage.removeItem(TOKEN_KEY);
+    delete api.defaults.headers.common.Authorization;
+  }
+};
+
+const existingToken = localStorage.getItem(TOKEN_KEY);
+if (existingToken) {
+  api.defaults.headers.common.Authorization = `Bearer ${existingToken}`;
+}
+
 // Video Entity - matches Base44 API
 export const Video = {
   async list(sortBy = "-created_date", limit = null) {
@@ -180,6 +197,7 @@ export const User = {
 
   async logout() {
     await api.post("/auth/logout");
+    setAuthToken(null);
     localStorage.removeItem("filmroom_return_url");
     localStorage.removeItem("filmroom_cart");
     this.currentUser = null;
