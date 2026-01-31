@@ -6,16 +6,20 @@ import { Video } from "@/api/entities";
 import { CartItem } from "@/api/entities";
 import { User } from "@/api/entities";
 import { API_URL } from "@/api/customClient";
-import { 
-  Play, 
-  Clock, 
-  Award, 
-  ShoppingCart, 
-  CheckCircle, 
+import {
+  Play,
+  Clock,
+  Award,
+  ShoppingCart,
+  CheckCircle,
   ArrowLeft,
   Star,
   Users,
-  Target
+  Target,
+  Instagram,
+  Twitter,
+  Youtube,
+  Globe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -319,7 +323,9 @@ export default function VideoDetail() {
             {/* Instructor Card */}
             <Card className="bg-slate-800 border-slate-700">
               <CardHeader>
-                <CardTitle>Your Instructor</CardTitle>
+                <CardTitle className="text-white text-xl">
+                  Your Instructor
+                </CardTitle>
               </CardHeader>
               <CardContent>
                 <div className="flex items-center gap-4 mb-4">
@@ -329,10 +335,12 @@ export default function VideoDetail() {
                     className="w-16 h-16 rounded-full object-cover"
                   />
                   <div>
-                    <h3 className="text-lg font-bold text-white">{video.instructor_name}</h3>
+                    <h3 className="text-2xl font-bold text-white">
+                      {video.instructor_name}
+                    </h3>
                     <div className="flex items-center gap-1 text-slate-400">
                       <Award className="w-4 h-4" />
-                      <span>Professional Athlete</span>
+                      <span className="text-slate-300">Professional Athlete</span>
                     </div>
                   </div>
                 </div>
@@ -349,15 +357,31 @@ export default function VideoDetail() {
                       </h4>
                       <div className="flex flex-wrap gap-2">
                         {video.instructor_socials.map((social) => (
+                          (() => {
+                            const platform = (social.platform || "").toLowerCase();
+                            const Icon =
+                              platform === "instagram"
+                                ? Instagram
+                                : platform === "twitter"
+                                ? Twitter
+                                : platform === "youtube"
+                                ? Youtube
+                                : Globe;
+                            return (
                           <a
                             key={`${social.platform}-${social.url}`}
                             href={social.url}
                             target="_blank"
                             rel="noreferrer"
-                            className="text-sm text-slate-300 hover:text-white underline underline-offset-4"
+                            className="inline-flex items-center gap-2 text-sm text-white hover:text-slate-200"
                           >
-                            {social.platform}
+                            <Icon className="w-4 h-4 text-white" />
+                            <span className="underline underline-offset-4">
+                              {social.platform}
+                            </span>
                           </a>
+                            );
+                          })()
                         ))}
                       </div>
                     </div>
