@@ -23,7 +23,23 @@ export default function Cart() {
       setUser(currentUser);
 
       const items = await CartItem.filter({ user_email: currentUser.email });
-      const videosPromises = items.map((item) =>
+      const purchasedIds = new Set(
+        (currentUser.purchasedVideos || []).map(
+          (video) => video._id || video.id
+        )
+      );
+      const removedItems = items.filter((item) =>
+        purchasedIds.has(item.video_id)
+      );
+      if (removedItems.length) {
+        await Promise.all(
+          removedItems.map((item) => CartItem.delete(item.id))
+        );
+      }
+      const remainingItems = items.filter(
+        (item) => !purchasedIds.has(item.video_id)
+      );
+      const videosPromises = remainingItems.map((item) =>
         Video.filter({ id: item.video_id }).then((videos) => ({
           cartItem: item,
           video: videos[0],
@@ -159,7 +175,7 @@ export default function Cart() {
                         className="w-24 h-16 object-cover rounded-lg"
                       />
                       <div className="flex-1">
-                        <h3 className="text-lg font-bold mb-1">
+                        <h3 className="text-lg font-bold text-white mb-1">
                           {video.title}
                         </h3>
                         <p className="text-slate-400 text-sm mb-2">
@@ -170,7 +186,7 @@ export default function Cart() {
                         </p>
                       </div>
                       <div className="text-right">
-                        <div className="text-xl font-bold mb-2">
+                        <div className="text-xl font-bold text-white mb-2">
                           ${video.price}
                         </div>
                         <Button
@@ -192,7 +208,7 @@ export default function Cart() {
             <div>
               <Card className="bg-slate-800 border-slate-700 sticky top-8">
                 <CardHeader>
-                  <CardTitle>Order Summary</CardTitle>
+                  <CardTitle className="text-white">Order Summary</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-2">
@@ -208,7 +224,7 @@ export default function Cart() {
 
                   <Separator className="bg-slate-700" />
 
-                  <div className="flex justify-between text-xl font-bold">
+                  <div className="flex justify-between text-xl font-bold text-white">
                     <span>Total</span>
                     <span>${calculateTotal().toFixed(2)}</span>
                   </div>
