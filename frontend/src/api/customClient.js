@@ -15,7 +15,7 @@ export const api = axios.create({
   withCredentials: true,
 });
 
-const TOKEN_KEY = "filmroom_token";
+export const TOKEN_KEY = "filmroom_token";
 
 export const setAuthToken = (token) => {
   if (token) {

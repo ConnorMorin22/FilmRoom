@@ -6,7 +6,7 @@ import { Video } from "@/api/entities";
 import { Review } from "@/api/customClient";
 import { CartItem } from "@/api/entities";
 import { User } from "@/api/entities";
-import { API_URL } from "@/api/customClient";
+import { API_URL, TOKEN_KEY } from "@/api/customClient";
 import {
   Play,
   Clock,
@@ -100,8 +100,10 @@ export default function VideoDetail() {
       if (!hasPurchased || !videoId) return;
       setIsStreamLoading(true);
       try {
+        const token = localStorage.getItem(TOKEN_KEY);
         const response = await fetch(`${API_URL}/videos/${videoId}/stream`, {
           credentials: "include",
+          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
         });
         if (!response.ok) {
           throw new Error("Failed to load stream URL");
