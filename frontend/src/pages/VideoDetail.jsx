@@ -3,6 +3,7 @@ import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Video } from "@/api/entities";
+import { Review } from "@/api/customClient";
 import { CartItem } from "@/api/entities";
 import { User } from "@/api/entities";
 import { API_URL } from "@/api/customClient";
@@ -37,6 +38,14 @@ export default function VideoDetail() {
   const [hasPurchased, setHasPurchased] = useState(false);
   const [streamUrl, setStreamUrl] = useState("");
   const [isStreamLoading, setIsStreamLoading] = useState(false);
+  const [reviews, setReviews] = useState([]);
+  const [reviewForm, setReviewForm] = useState({
+    rating: 5,
+    title: "",
+    body: "",
+  });
+  const [reviewError, setReviewError] = useState("");
+  const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
   const loadVideoDetail = useCallback(async () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -73,6 +82,12 @@ export default function VideoDetail() {
     }
 
     setVideo(videoData[0]);
+    try {
+      const reviewData = await Review.listForVideo(videoId);
+      setReviews(reviewData);
+    } catch (error) {
+      console.error("Failed to load reviews:", error);
+    }
     setIsLoading(false);
   }, [navigate]); // navigate is a stable dependency from useNavigate hook
 
@@ -121,6 +136,28 @@ export default function VideoDetail() {
       console.error("Error adding to cart:", error);
     }
     setIsAddingToCart(false);
+  };
+
+  const handleReviewSubmit = async (event) => {
+    event.preventDefault();
+    setReviewError("");
+    setIsSubmittingReview(true);
+    try {
+      const review = await Review.create(videoId, {
+        rating: Number(reviewForm.rating),
+        title: reviewForm.title.trim(),
+        body: reviewForm.body.trim(),
+      });
+      setReviews((prev) => [review, ...prev]);
+      setReviewForm({ rating: 5, title: "", body: "" });
+    } catch (error) {
+      setReviewError(
+        error.response?.data?.error ||
+          "Failed to submit review. Please try again."
+      );
+    } finally {
+      setIsSubmittingReview(false);
+    }
   };
 
   const categoryColors = {
@@ -246,10 +283,16 @@ export default function VideoDetail() {
               {/* Tags */}
               {video.tags && video.tags.length > 0 && (
                 <div className="mb-8">
-                  <h3 className="text-lg font-semibold mb-3">What You'll Learn</h3>
+                  <h3 className="text-lg font-semibold text-white mb-3">
+                    What You'll Learn
+                  </h3>
                   <div className="flex flex-wrap gap-2">
                     {video.tags.map((tag, index) => (
-                      <Badge key={index} variant="outline" className="border-slate-600 text-slate-400">
+                      <Badge
+                        key={index}
+                        variant="outline"
+                        className="border-slate-600 text-slate-300"
+                      >
                         <Target className="w-3 h-3 mr-1" />
                         {tag}
                       </Badge>
@@ -257,6 +300,114 @@ export default function VideoDetail() {
                   </div>
                 </div>
               )}
+
+              <div className="mb-8">
+                <h3 className="text-2xl font-bold text-white mb-4">
+                  Reviews
+                </h3>
+                {hasPurchased && (
+                  <form
+                    onSubmit={handleReviewSubmit}
+                    className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6"
+                  >
+                    {reviewError && (
+                      <div className="bg-red-900/30 border border-red-700 text-red-200 text-sm px-4 py-2 rounded mb-3">
+                        {reviewError}
+                      </div>
+                    )}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                      <div>
+                        <label className="text-sm text-white mb-2 block">
+                          Rating
+                        </label>
+                        <select
+                          value={reviewForm.rating}
+                          onChange={(event) =>
+                            setReviewForm((prev) => ({
+                              ...prev,
+                              rating: event.target.value,
+                            }))
+                          }
+                          className="w-full bg-slate-700 border border-slate-600 text-white rounded px-3 py-2"
+                        >
+                          {[5, 4, 3, 2, 1].map((value) => (
+                            <option key={value} value={value}>
+                              {value} stars
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-sm text-white mb-2 block">
+                          Title
+                        </label>
+                        <input
+                          value={reviewForm.title}
+                          onChange={(event) =>
+                            setReviewForm((prev) => ({
+                              ...prev,
+                              title: event.target.value,
+                            }))
+                          }
+                          className="w-full bg-slate-700 border border-slate-600 text-white rounded px-3 py-2"
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div className="mb-4">
+                      <label className="text-sm text-white mb-2 block">
+                        Review
+                      </label>
+                      <textarea
+                        value={reviewForm.body}
+                        onChange={(event) =>
+                          setReviewForm((prev) => ({
+                            ...prev,
+                            body: event.target.value,
+                          }))
+                        }
+                        className="w-full bg-slate-700 border border-slate-600 text-white rounded px-3 py-2 h-24"
+                        required
+                      />
+                    </div>
+                    <Button
+                      type="submit"
+                      disabled={isSubmittingReview}
+                      className="bg-blue-600 hover:bg-blue-700 text-white"
+                    >
+                      {isSubmittingReview ? "Submitting..." : "Submit Review"}
+                    </Button>
+                  </form>
+                )}
+
+                {reviews.length === 0 ? (
+                  <p className="text-slate-400">
+                    No reviews yet. Be the first to leave one.
+                  </p>
+                ) : (
+                  <div className="space-y-4">
+                    {reviews.map((review) => (
+                      <div
+                        key={review.id}
+                        className="bg-slate-800 border border-slate-700 rounded-xl p-4"
+                      >
+                        <div className="text-slate-300 text-sm mb-1">
+                          {"★".repeat(review.rating).padEnd(5, "☆")}
+                        </div>
+                        <div className="text-white font-semibold mb-1">
+                          {review.title}
+                        </div>
+                        <div className="text-slate-300 text-sm mb-2">
+                          {review.body}
+                        </div>
+                        <div className="text-slate-400 text-xs">
+                          {review.user_name}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

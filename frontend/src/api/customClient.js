@@ -75,6 +75,21 @@ export const Video = {
   },
 };
 
+export const Review = {
+  async listForVideo(videoId) {
+    const { data } = await api.get(`/videos/${videoId}/reviews`);
+    return data.reviews || [];
+  },
+  async create(videoId, payload) {
+    const { data } = await api.post(`/videos/${videoId}/reviews`, payload);
+    return data.review;
+  },
+  async top(limit = 8) {
+    const { data } = await api.get(`/reviews/top?limit=${limit}`);
+    return data.reviews || [];
+  },
+};
+
 // Purchase Entity
 export const Purchase = {
   async list(sortBy = "-created_date") {

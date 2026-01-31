@@ -7,6 +7,7 @@ const authRoutes = require("./routes/authRoutes");
 const videoRoutes = require("./routes/videoRoutes");
 const purchaseRoutes = require("./routes/purchaseRoutes");
 const adminRoutes = require("./routes/adminRoutes");
+const reviewRoutes = require("./routes/reviewRoutes");
 const { stripeWebhook } = require("./controllers/purchaseController");
 
 // Load environment variables
@@ -73,6 +74,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/videos", videoRoutes);
 app.use("/api/purchases", purchaseRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/reviews", reviewRoutes);
 
 // Start server
 const PORT = process.env.PORT || 5001;

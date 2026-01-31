@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Video } from "@/api/entities";
 import { User } from "@/api/entities";
+import { Review } from "@/api/customClient";
 import {
   Play,
   Star,
@@ -25,6 +26,7 @@ export default function Home() {
   const [categories, setCategories] = useState([]);
   const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [topReviews, setTopReviews] = useState([]);
 
   useEffect(() => {
     loadData();
@@ -45,6 +47,13 @@ export default function Home() {
         6
       );
       setFeaturedVideos(videos);
+
+      try {
+        const reviews = await Review.top(8);
+        setTopReviews(reviews);
+      } catch (error) {
+        console.error("Failed to load reviews:", error);
+      }
 
       // Load category counts
       const allVideos = await Video.filter({ is_active: true });
@@ -181,6 +190,64 @@ export default function Home() {
               ))}
             </div>
           </div>
+        </section>
+      )}
+
+      {topReviews.length > 0 && (
+        <section className="py-16 px-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-between mb-8">
+              <h2 className="text-3xl font-bold text-white">What People Say</h2>
+            </div>
+            <div className="overflow-hidden">
+              <div className="review-marquee">
+                {[...topReviews, ...topReviews].map((review, index) => (
+                  <div
+                    key={`${review.id || review.created_date}-${index}`}
+                    className="review-card"
+                  >
+                    <div className="text-slate-300 text-sm mb-2">
+                      {"★".repeat(review.rating).padEnd(5, "☆")}
+                    </div>
+                    <div className="text-white font-semibold mb-1">
+                      {review.title}
+                    </div>
+                    <div className="text-slate-300 text-sm line-clamp-3 mb-3">
+                      {review.body}
+                    </div>
+                    <div className="text-slate-400 text-xs">
+                      {review.user_name}
+                      {review.video_title ? ` · ${review.video_title}` : ""}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+          <style>{`
+            .review-marquee {
+              display: flex;
+              gap: 24px;
+              width: max-content;
+              animation: review-scroll 45s linear infinite;
+            }
+            .review-marquee:hover {
+              animation-play-state: paused;
+            }
+            .review-card {
+              background: rgba(30, 41, 59, 0.7);
+              border: 1px solid rgba(71, 85, 105, 0.6);
+              border-radius: 16px;
+              padding: 20px;
+              width: 320px;
+              flex: 0 0 auto;
+              backdrop-filter: blur(8px);
+            }
+            @keyframes review-scroll {
+              0% { transform: translateX(0); }
+              100% { transform: translateX(-50%); }
+            }
+          `}</style>
         </section>
       )}
 
