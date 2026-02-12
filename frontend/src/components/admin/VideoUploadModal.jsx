@@ -13,8 +13,8 @@ import { Checkbox } from "@/components/ui/checkbox";
 const FILE_LIMITS = {
   video_url: 200 * 1024 * 1024 * 1024, // 200GB
   preview_url: 2 * 1024 * 1024 * 1024, // 2GB
-  thumbnail_url: 10 * 1024 * 1024, // 10MB
-  instructor_photo: 10 * 1024 * 1024, // 10MB
+  thumbnail_url: 20 * 1024 * 1024, // 20MB
+  instructor_photo: 20 * 1024 * 1024, // 20MB
 };
 
 const formatBytes = (bytes) => {
@@ -145,7 +145,7 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
       }));
     } catch (error) {
       console.error("Error uploading file:", error);
-      setError("File upload failed. Please try again.");
+      setError(error.message || "File upload failed. Please try again.");
     } finally {
       setIsFileUploading(false);
       setUploadingField("");
@@ -450,6 +450,18 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
 
               <div>
                 <Label htmlFor="thumbnail_url" className="text-white">Thumbnail Image</Label>
+                {videoData.thumbnail_url && (
+                  <div className="mt-2 mb-3">
+                    <img
+                      src={videoData.thumbnail_url}
+                      alt="Current thumbnail"
+                      className="w-40 h-24 object-cover rounded border border-slate-600"
+                    />
+                    <p className="text-xs text-slate-400 mt-1">
+                      {isEditMode ? "Current thumbnail" : "Uploaded thumbnail"}
+                    </p>
+                  </div>
+                )}
                 <Input
                   id="thumbnail_url"
                   type="file"
@@ -457,6 +469,9 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
                   onChange={(e) => e.target.files[0] && handleFileUpload(e.target.files[0], "thumbnail_url")}
                   className="bg-slate-700 border-slate-600 text-white"
                 />
+                <p className="text-xs text-slate-400 mt-1">
+                  Upload a new image to replace the thumbnail.
+                </p>
               </div>
             </div>
 

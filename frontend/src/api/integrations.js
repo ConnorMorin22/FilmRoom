@@ -156,7 +156,9 @@ export const UploadFile = async ({ file, folder, onProgress }) => {
       statusText: uploadResponse.statusText,
       errorBody,
     });
-    throw new Error("Failed to upload file to S3");
+    throw new Error(
+      `Failed to upload file to S3 (${uploadResponse.status}). ${errorBody || ""}`.trim()
+    );
   }
 
   return {
