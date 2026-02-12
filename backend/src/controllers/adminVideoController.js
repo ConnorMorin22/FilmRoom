@@ -65,17 +65,11 @@ exports.getUploadUrl = async (req, res) => {
       return res.status(500).json({ error: "S3 credentials not available" });
     }
 
-    const isImageUpload = prefix.startsWith("images/");
     const postOptions = {
       Bucket: bucket,
       Key: key,
       Expires: 300,
     };
-
-    if (isImageUpload) {
-      postOptions.Fields = { acl: "public-read" };
-      postOptions.Conditions = [{ acl: "public-read" }];
-    }
 
     const { url: uploadUrl, fields } = await createPresignedPost(
       s3Client,
