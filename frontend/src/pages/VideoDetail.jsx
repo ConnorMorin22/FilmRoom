@@ -183,6 +183,35 @@ export default function VideoDetail() {
     return "";
   }, [video?.description]);
 
+  const markdownDescription = useMemo(() => {
+    if (!descriptionText) return "";
+
+    const sectionHeadingPattern =
+      /^(what you['’]ll learn|built for|my quick read)$/i;
+
+    const lines = descriptionText.split("\n");
+    const normalized = lines.map((line) => {
+      const trimmed = line.trim();
+
+      if (!trimmed) {
+        return "";
+      }
+
+      // Support bullet characters copied from rich text sources.
+      if (/^[•●▪◦]\s+/.test(trimmed)) {
+        return `- ${trimmed.replace(/^[•●▪◦]\s+/, "")}`;
+      }
+
+      if (sectionHeadingPattern.test(trimmed)) {
+        return `### ${trimmed}`;
+      }
+
+      return line;
+    });
+
+    return normalized.join("\n");
+  }, [descriptionText]);
+
   const shouldShowDescriptionToggle = useMemo(() => {
     if (!descriptionText) return false;
 
@@ -308,9 +337,9 @@ export default function VideoDetail() {
                   }`}
                 >
                   <ReactMarkdown
-                    className="prose prose-slate prose-invert max-w-none text-slate-200 leading-relaxed prose-headings:text-white prose-strong:text-white prose-p:leading-relaxed prose-li:marker:text-slate-400 prose-ul:my-4 prose-ol:my-4"
+                    className="prose prose-slate prose-invert max-w-none text-slate-200 leading-7 prose-p:my-4 prose-p:leading-7 prose-h2:mt-8 prose-h2:mb-3 prose-h2:text-2xl prose-h2:font-bold prose-h2:text-white prose-h3:mt-7 prose-h3:mb-2 prose-h3:text-xl prose-h3:font-semibold prose-h3:text-white prose-strong:font-semibold prose-strong:text-white prose-ul:my-4 prose-ul:list-disc prose-ul:pl-6 prose-ol:my-4 prose-ol:list-decimal prose-ol:pl-6 prose-li:my-1 prose-li:pl-1 prose-li:marker:text-slate-300"
                   >
-                    {descriptionText || "No description available."}
+                    {markdownDescription || "No description available."}
                   </ReactMarkdown>
 
                   {!isDescriptionExpanded && shouldShowDescriptionToggle && (
