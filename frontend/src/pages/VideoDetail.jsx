@@ -2,7 +2,7 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
-import { createPageUrl } from "@/utils";
+import { createPageUrl, getDescriptionPreviewText } from "@/utils";
 import { Video } from "@/api/entities";
 import { Review } from "@/api/customClient";
 import { CartItem } from "@/api/entities";
@@ -16,7 +16,6 @@ import {
   CheckCircle,
   ArrowLeft,
   Star,
-  Target,
   Instagram,
   Twitter,
   Youtube,
@@ -212,6 +211,14 @@ export default function VideoDetail() {
     return normalized.join("\n");
   }, [descriptionText]);
 
+  const courseHook = useMemo(() => {
+    const preview = getDescriptionPreviewText(descriptionText);
+    if (!preview) return "Structured training built to accelerate your game.";
+
+    const firstSentence = preview.match(/.*?[.!?](\s|$)/)?.[0]?.trim();
+    return firstSentence || preview;
+  }, [descriptionText]);
+
   const shouldShowDescriptionToggle = useMemo(() => {
     if (!descriptionText) return false;
 
@@ -225,6 +232,227 @@ export default function VideoDetail() {
   useEffect(() => {
     setIsDescriptionExpanded(false);
   }, [video?.id]);
+
+  const renderDescriptionBlock = (compact = false) => (
+    <div className={compact ? "mb-6" : "mb-10"}>
+      <div
+        className={`relative overflow-hidden transition-all duration-300 ${
+          !isDescriptionExpanded && shouldShowDescriptionToggle
+            ? compact
+              ? "max-h-[8.5rem]"
+              : "max-h-[13rem]"
+            : "max-h-[120rem]"
+        }`}
+      >
+        <ReactMarkdown
+          className="prose prose-slate prose-invert max-w-none text-slate-200"
+          components={{
+            h2: ({ ...props }) => (
+              <h2
+                className="mt-8 mb-3 text-2xl font-bold tracking-tight text-white"
+                {...props}
+              />
+            ),
+            h3: ({ ...props }) => (
+              <h3
+                className="mt-7 mb-2 text-xl font-semibold tracking-tight text-white"
+                {...props}
+              />
+            ),
+            p: ({ ...props }) => (
+              <p className="my-4 text-base leading-7 text-slate-200" {...props} />
+            ),
+            ul: ({ ...props }) => (
+              <ul className="my-4 list-disc pl-6 text-slate-200" {...props} />
+            ),
+            ol: ({ ...props }) => (
+              <ol className="my-4 list-decimal pl-6 text-slate-200" {...props} />
+            ),
+            li: ({ ...props }) => (
+              <li className="my-1 pl-1 leading-7 marker:text-slate-300" {...props} />
+            ),
+            strong: ({ ...props }) => (
+              <strong className="font-semibold text-white" {...props} />
+            ),
+          }}
+        >
+          {markdownDescription || "No description available."}
+        </ReactMarkdown>
+
+        {!isDescriptionExpanded && shouldShowDescriptionToggle && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-slate-900 to-transparent" />
+        )}
+      </div>
+
+      {shouldShowDescriptionToggle && (
+        <Button
+          variant="ghost"
+          onClick={() => setIsDescriptionExpanded((prev) => !prev)}
+          className="mt-3 px-0 text-blue-300 hover:text-blue-200 hover:bg-transparent"
+        >
+          {isDescriptionExpanded ? "Show Less" : "Show More"}
+        </Button>
+      )}
+    </div>
+  );
+
+  const renderInstructorCard = () => (
+    <Card className="bg-slate-800 border-slate-700">
+      <CardHeader>
+        <CardTitle className="text-white text-xl">Your Instructor</CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="flex items-center gap-4 mb-4">
+          <img
+            src={
+              video.instructor_photo ||
+              `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face`
+            }
+            alt={video.instructor_name}
+            className="w-16 h-16 rounded-full object-cover"
+          />
+          <div>
+            <h3 className="text-2xl font-bold text-white">{video.instructor_name}</h3>
+            <div className="flex items-center gap-1 text-slate-400">
+              <Award className="w-4 h-4" />
+              <span className="text-slate-300">Professional Athlete</span>
+            </div>
+          </div>
+        </div>
+        {video.instructor_bio && (
+          <p className="text-slate-300 text-sm mb-4">{video.instructor_bio}</p>
+        )}
+        {Array.isArray(video.instructor_socials) &&
+          video.instructor_socials.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-sm font-semibold text-white">Connect</h4>
+              <div className="flex flex-wrap gap-2">
+                {video.instructor_socials.map((social) => {
+                  const platform = (social.platform || "").toLowerCase();
+                  const Icon =
+                    platform === "instagram"
+                      ? Instagram
+                      : platform === "twitter"
+                      ? Twitter
+                      : platform === "youtube"
+                      ? Youtube
+                      : Globe;
+
+                  return (
+                    <a
+                      key={`${social.platform}-${social.url}`}
+                      href={social.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-flex items-center gap-2 text-sm text-white hover:text-slate-200"
+                    >
+                      <Icon className="w-4 h-4 text-white" />
+                      <span className="underline underline-offset-4">
+                        {social.platform}
+                      </span>
+                    </a>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+      </CardContent>
+    </Card>
+  );
+
+  const renderReviewsSection = () => (
+    <div className="mb-8">
+      <h3 className="text-2xl font-bold text-white mb-4">Reviews</h3>
+      {hasPurchased && (
+        <form
+          onSubmit={handleReviewSubmit}
+          className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6"
+        >
+          {reviewError && (
+            <div className="bg-red-900/30 border border-red-700 text-red-200 text-sm px-4 py-2 rounded mb-3">
+              {reviewError}
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            <div>
+              <label className="text-sm text-white mb-2 block">Rating</label>
+              <select
+                value={reviewForm.rating}
+                onChange={(event) =>
+                  setReviewForm((prev) => ({
+                    ...prev,
+                    rating: event.target.value,
+                  }))
+                }
+                className="w-full bg-slate-700 border border-slate-600 text-white rounded px-3 py-2"
+              >
+                {[5, 4, 3, 2, 1].map((value) => (
+                  <option key={value} value={value}>
+                    {value} stars
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-sm text-white mb-2 block">Title</label>
+              <input
+                value={reviewForm.title}
+                onChange={(event) =>
+                  setReviewForm((prev) => ({
+                    ...prev,
+                    title: event.target.value,
+                  }))
+                }
+                className="w-full bg-slate-700 border border-slate-600 text-white rounded px-3 py-2"
+                required
+              />
+            </div>
+          </div>
+          <div className="mb-4">
+            <label className="text-sm text-white mb-2 block">Review</label>
+            <textarea
+              value={reviewForm.body}
+              onChange={(event) =>
+                setReviewForm((prev) => ({
+                  ...prev,
+                  body: event.target.value,
+                }))
+              }
+              className="w-full bg-slate-700 border border-slate-600 text-white rounded px-3 py-2 h-24"
+              required
+            />
+          </div>
+          <Button
+            type="submit"
+            disabled={isSubmittingReview}
+            className="bg-blue-600 hover:bg-blue-700 text-white"
+          >
+            {isSubmittingReview ? "Submitting..." : "Submit Review"}
+          </Button>
+        </form>
+      )}
+
+      {reviews.length === 0 ? (
+        <p className="text-slate-400">No reviews yet. Be the first to leave one.</p>
+      ) : (
+        <div className="space-y-4">
+          {reviews.map((review) => (
+            <div
+              key={review.id}
+              className="bg-slate-800 border border-slate-700 rounded-xl p-4"
+            >
+              <div className="text-slate-300 text-sm mb-1">
+                {"★".repeat(review.rating).padEnd(5, "☆")}
+              </div>
+              <div className="text-white font-semibold mb-1">{review.title}</div>
+              <div className="text-slate-300 text-sm mb-2">{review.body}</div>
+              <div className="text-slate-400 text-xs">{review.user_name}</div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 
   if (isLoading) {
     return (
@@ -260,273 +488,90 @@ export default function VideoDetail() {
           Back to Videos
         </Button>
 
-        <div className="grid lg:grid-cols-3 gap-12">
-          {/* Video Player */}
-          <div className="lg:col-span-2">
-            <Card className="bg-slate-800 border-slate-700 overflow-hidden">
-              <div className="relative aspect-video">
-                {hasPurchased ? (
-                  <div className="w-full h-full bg-black flex items-center justify-center">
-                    {isStreamLoading ? (
-                      <div className="text-center">
-                        <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4" />
-                        <p className="text-slate-400 text-sm">
-                          Loading stream...
-                        </p>
-                      </div>
-                    ) : streamUrl ? (
-                      <video
-                        className="w-full h-full"
-                        src={streamUrl}
-                        controls
-                        playsInline
-                      />
-                    ) : (
-                      <div className="text-center">
-                        <Play className="w-16 h-16 text-blue-400 mx-auto mb-4" />
-                        <p className="text-slate-400 text-sm">
-                          Stream unavailable
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                ) : (
-                  <>
-                    <img
-                      src={video.thumbnail_url || `https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800&h=600&fit=crop`}
-                      alt={video.title}
-                      className="w-full h-full object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <div className="text-center">
-                        <div className="w-20 h-20 bg-blue-500/80 backdrop-blur rounded-full flex items-center justify-center mb-4">
-                          <Play className="w-10 h-10 text-white ml-1" />
-                        </div>
-                        <p className="text-white font-medium">Preview Available</p>
-                      </div>
+        {hasPurchased ? (
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-2 space-y-8">
+              <Card className="bg-slate-800 border-slate-700 overflow-hidden">
+                <div className="relative aspect-video bg-black flex items-center justify-center">
+                  {isStreamLoading ? (
+                    <div className="text-center">
+                      <div className="animate-spin w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-4" />
+                      <p className="text-slate-400 text-sm">Loading stream...</p>
                     </div>
-                  </>
-                )}
-              </div>
-            </Card>
-
-            {/* Video Details */}
-            <div className="mt-8">
-              <div className="flex flex-wrap gap-3 mb-4">
-                <Badge className={categoryColors[video.category]}>
-                  {video.category}
-                </Badge>
-                {video.skill_level !== 'all' && (
-                  <Badge className={`${skillLevelColors[video.skill_level]} text-white`}>
-                    {video.skill_level}
-                  </Badge>
-                )}
-                <Badge variant="outline" className="border-slate-600 text-slate-300">
-                  <Clock className="w-3 h-3 mr-1" />
-                  {video.duration} minutes
-                </Badge>
-              </div>
-
-              <h1 className="text-4xl font-bold mb-4">{video.title}</h1>
-              <div className="mb-8">
-                <div
-                  className={`relative overflow-hidden transition-all duration-300 ${
-                    !isDescriptionExpanded && shouldShowDescriptionToggle
-                      ? "max-h-[9rem]"
-                      : "max-h-[100rem]"
-                  }`}
-                >
-                  <ReactMarkdown
-                    className="prose prose-slate prose-invert max-w-none text-slate-200"
-                    components={{
-                      h2: ({ ...props }) => (
-                        <h2
-                          className="mt-8 mb-3 text-2xl font-bold tracking-tight text-white"
-                          {...props}
-                        />
-                      ),
-                      h3: ({ ...props }) => (
-                        <h3
-                          className="mt-7 mb-2 text-xl font-semibold tracking-tight text-white"
-                          {...props}
-                        />
-                      ),
-                      p: ({ ...props }) => (
-                        <p className="my-4 text-base leading-7 text-slate-200" {...props} />
-                      ),
-                      ul: ({ ...props }) => (
-                        <ul className="my-4 list-disc pl-6 text-slate-200" {...props} />
-                      ),
-                      ol: ({ ...props }) => (
-                        <ol className="my-4 list-decimal pl-6 text-slate-200" {...props} />
-                      ),
-                      li: ({ ...props }) => (
-                        <li
-                          className="my-1 pl-1 leading-7 marker:text-slate-300"
-                          {...props}
-                        />
-                      ),
-                      strong: ({ ...props }) => (
-                        <strong className="font-semibold text-white" {...props} />
-                      ),
-                    }}
-                  >
-                    {markdownDescription || "No description available."}
-                  </ReactMarkdown>
-
-                  {!isDescriptionExpanded && shouldShowDescriptionToggle && (
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent" />
+                  ) : streamUrl ? (
+                    <video
+                      className="w-full h-full"
+                      src={streamUrl}
+                      controls
+                      playsInline
+                    />
+                  ) : (
+                    <div className="text-center">
+                      <Play className="w-16 h-16 text-blue-400 mx-auto mb-4" />
+                      <p className="text-slate-400 text-sm">Stream unavailable</p>
+                    </div>
                   )}
                 </div>
+              </Card>
 
-                {shouldShowDescriptionToggle && (
-                  <Button
-                    variant="ghost"
-                    onClick={() => setIsDescriptionExpanded((prev) => !prev)}
-                    className="mt-3 px-0 text-blue-300 hover:text-blue-200 hover:bg-transparent"
-                  >
-                    {isDescriptionExpanded ? "Show Less" : "Show More"}
-                  </Button>
-                )}
+              <div>
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <Badge className={categoryColors[video.category]}>{video.category}</Badge>
+                  {video.skill_level !== "all" && (
+                    <Badge className={`${skillLevelColors[video.skill_level]} text-white`}>
+                      {video.skill_level}
+                    </Badge>
+                  )}
+                  <Badge variant="outline" className="border-slate-600 text-slate-300">
+                    <Clock className="w-3 h-3 mr-1" />
+                    {video.duration} minutes
+                  </Badge>
+                </div>
+                <h1 className="text-3xl md:text-4xl font-bold mb-3">{video.title}</h1>
+                {renderDescriptionBlock(true)}
               </div>
 
-              {/* Tags */}
-              {video.tags && video.tags.length > 0 && (
-                <div className="mb-8">
-                  <h3 className="text-lg font-semibold text-white mb-3">
-                    What You&apos;ll Learn
-                  </h3>
-                  <div className="flex flex-wrap gap-2">
-                    {video.tags.map((tag, index) => (
-                      <Badge
-                        key={index}
-                        variant="outline"
-                        className="border-slate-600 text-slate-300"
-                      >
-                        <Target className="w-3 h-3 mr-1" />
-                        {tag}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-              )}
+              {renderReviewsSection()}
+            </div>
 
-              <div className="mb-8">
-                <h3 className="text-2xl font-bold text-white mb-4">
-                  Reviews
-                </h3>
-                {hasPurchased && (
-                  <form
-                    onSubmit={handleReviewSubmit}
-                    className="bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6"
-                  >
-                    {reviewError && (
-                      <div className="bg-red-900/30 border border-red-700 text-red-200 text-sm px-4 py-2 rounded mb-3">
-                        {reviewError}
+            <div className="space-y-6">
+              <Card className="bg-slate-800 border-slate-700 lg:sticky lg:top-8">
+                <CardHeader>
+                  <CardTitle className="text-white text-xl">Course Navigation</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-4">
+                    <h4 className="text-white font-medium mb-1">Chapters</h4>
+                    <p className="text-slate-400 text-sm">Chapters coming soon.</p>
+                  </div>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between text-slate-300">
+                      <span>Duration</span>
+                      <span>{video.duration} min</span>
+                    </div>
+                    <div className="flex justify-between text-slate-300">
+                      <span>Category</span>
+                      <span className="capitalize">{video.category}</span>
+                    </div>
+                    {video.skill_level !== "all" && (
+                      <div className="flex justify-between text-slate-300">
+                        <span>Skill level</span>
+                        <span className="capitalize">{video.skill_level}</span>
                       </div>
                     )}
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                      <div>
-                        <label className="text-sm text-white mb-2 block">
-                          Rating
-                        </label>
-                        <select
-                          value={reviewForm.rating}
-                          onChange={(event) =>
-                            setReviewForm((prev) => ({
-                              ...prev,
-                              rating: event.target.value,
-                            }))
-                          }
-                          className="w-full bg-slate-700 border border-slate-600 text-white rounded px-3 py-2"
-                        >
-                          {[5, 4, 3, 2, 1].map((value) => (
-                            <option key={value} value={value}>
-                              {value} stars
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div>
-                        <label className="text-sm text-white mb-2 block">
-                          Title
-                        </label>
-                        <input
-                          value={reviewForm.title}
-                          onChange={(event) =>
-                            setReviewForm((prev) => ({
-                              ...prev,
-                              title: event.target.value,
-                            }))
-                          }
-                          className="w-full bg-slate-700 border border-slate-600 text-white rounded px-3 py-2"
-                          required
-                        />
-                      </div>
-                    </div>
-                    <div className="mb-4">
-                      <label className="text-sm text-white mb-2 block">
-                        Review
-                      </label>
-                      <textarea
-                        value={reviewForm.body}
-                        onChange={(event) =>
-                          setReviewForm((prev) => ({
-                            ...prev,
-                            body: event.target.value,
-                          }))
-                        }
-                        className="w-full bg-slate-700 border border-slate-600 text-white rounded px-3 py-2 h-24"
-                        required
-                      />
-                    </div>
-                    <Button
-                      type="submit"
-                      disabled={isSubmittingReview}
-                      className="bg-blue-600 hover:bg-blue-700 text-white"
-                    >
-                      {isSubmittingReview ? "Submitting..." : "Submit Review"}
-                    </Button>
-                  </form>
-                )}
-
-                {reviews.length === 0 ? (
-                  <p className="text-slate-400">
-                    No reviews yet. Be the first to leave one.
-                  </p>
-                ) : (
-                  <div className="space-y-4">
-                    {reviews.map((review) => (
-                      <div
-                        key={review.id}
-                        className="bg-slate-800 border border-slate-700 rounded-xl p-4"
-                      >
-                        <div className="text-slate-300 text-sm mb-1">
-                          {"★".repeat(review.rating).padEnd(5, "☆")}
-                        </div>
-                        <div className="text-white font-semibold mb-1">
-                          {review.title}
-                        </div>
-                        <div className="text-slate-300 text-sm mb-2">
-                          {review.body}
-                        </div>
-                        <div className="text-slate-400 text-xs">
-                          {review.user_name}
-                        </div>
-                      </div>
-                    ))}
                   </div>
-                )}
-              </div>
+                </CardContent>
+              </Card>
+
+              {renderInstructorCard()}
             </div>
           </div>
-
-          {/* Sidebar */}
-          <div className="space-y-6">
-            {!hasPurchased && (
-              <Card className="bg-slate-800 border-slate-700">
+        ) : (
+          <div className="grid lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1 lg:order-2 order-1">
+              <Card className="bg-slate-800 border-slate-700 lg:sticky lg:top-8">
                 <CardHeader>
-                  <CardTitle className="text-2xl text-white">
+                  <CardTitle className="text-4xl font-bold text-white">
                     ${video.price}
                   </CardTitle>
                 </CardHeader>
@@ -537,7 +582,7 @@ export default function VideoDetail() {
                       className="w-full bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white"
                     >
                       <ShoppingCart className="w-4 h-4 mr-2" />
-                      Sign In to Purchase
+                      Sign In to Unlock Course
                     </Button>
                   ) : isInCart ? (
                     <div>
@@ -559,117 +604,121 @@ export default function VideoDetail() {
                       className="w-full bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white"
                     >
                       <ShoppingCart className="w-4 h-4 mr-2" />
-                      {isAddingToCart ? "Adding..." : "Add to Cart"}
+                      {isAddingToCart ? "Adding..." : "Unlock Course"}
                     </Button>
                   )}
 
-                  <div className="space-y-3 text-sm text-slate-400">
+                  <div className="space-y-3 text-sm text-slate-300">
                     <div className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-400" />
                       Lifetime access
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-400" />
-                      HD video quality
+                      Watch anytime
                     </div>
                     <div className="flex items-center gap-2">
                       <CheckCircle className="w-4 h-4 text-green-400" />
-                      Mobile & desktop access
+                      Instant access after purchase
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <CheckCircle className="w-4 h-4 text-green-400" />
+                      Premium instructional course
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-slate-700 space-y-2 text-sm">
+                    <div className="flex justify-between text-slate-300">
+                      <span>Duration</span>
+                      <span>{video.duration} min</span>
+                    </div>
+                    <div className="flex justify-between text-slate-300">
+                      <span>Category</span>
+                      <span className="capitalize">{video.category}</span>
+                    </div>
+                    {video.skill_level !== "all" && (
+                      <div className="flex justify-between text-slate-300">
+                        <span>Skill level</span>
+                        <span className="capitalize">{video.skill_level}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between text-slate-300">
+                      <span>Rating</span>
+                      <span className="inline-flex items-center gap-1">
+                        <Star className="w-3 h-3" />
+                        4.9
+                      </span>
                     </div>
                   </div>
                 </CardContent>
               </Card>
-            )}
+            </div>
 
-            {/* Instructor Card */}
-            <Card className="bg-slate-800 border-slate-700">
-              <CardHeader>
-                <CardTitle className="text-white text-xl">
-                  Your Instructor
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center gap-4 mb-4">
+            <div className="lg:col-span-2 lg:order-1 order-2 space-y-8">
+              <Card className="bg-slate-800 border-slate-700 overflow-hidden">
+                <div className="relative aspect-video">
                   <img
-                    src={video.instructor_photo || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face`}
-                    alt={video.instructor_name}
-                    className="w-16 h-16 rounded-full object-cover"
+                    src={
+                      video.thumbnail_url ||
+                      `https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800&h=600&fit=crop`
+                    }
+                    alt={video.title}
+                    className="w-full h-full object-cover"
                   />
-                  <div>
-                    <h3 className="text-2xl font-bold text-white">
-                      {video.instructor_name}
-                    </h3>
-                    <div className="flex items-center gap-1 text-slate-400">
-                      <Award className="w-4 h-4" />
-                      <span className="text-slate-300">Professional Athlete</span>
-                    </div>
-                  </div>
-                </div>
-                {video.instructor_bio && (
-                  <p className="text-slate-300 text-sm mb-4">
-                    {video.instructor_bio}
-                  </p>
-                )}
-                {Array.isArray(video.instructor_socials) &&
-                  video.instructor_socials.length > 0 && (
-                    <div className="space-y-2">
-                      <h4 className="text-sm font-semibold text-white">
-                        Connect
-                      </h4>
-                      <div className="flex flex-wrap gap-2">
-                        {video.instructor_socials.map((social) => (
-                          (() => {
-                            const platform = (social.platform || "").toLowerCase();
-                            const Icon =
-                              platform === "instagram"
-                                ? Instagram
-                                : platform === "twitter"
-                                ? Twitter
-                                : platform === "youtube"
-                                ? Youtube
-                                : Globe;
-                            return (
-                          <a
-                            key={`${social.platform}-${social.url}`}
-                            href={social.url}
-                            target="_blank"
-                            rel="noreferrer"
-                            className="inline-flex items-center gap-2 text-sm text-white hover:text-slate-200"
-                          >
-                            <Icon className="w-4 h-4 text-white" />
-                            <span className="underline underline-offset-4">
-                              {social.platform}
-                            </span>
-                          </a>
-                            );
-                          })()
-                        ))}
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                    <div className="text-center">
+                      <div className="w-20 h-20 bg-blue-500/80 backdrop-blur rounded-full flex items-center justify-center mb-4">
+                        <Play className="w-10 h-10 text-white ml-1" />
                       </div>
-                    </div>
-                  )}
-              </CardContent>
-            </Card>
-
-            {/* Video Stats */}
-            <Card className="bg-slate-800 border-slate-700">
-              <CardContent className="pt-6">
-                <div className="grid grid-cols-2 gap-4 text-center">
-                  <div>
-                    <div className="text-2xl font-bold text-blue-400">{video.duration}</div>
-                    <div className="text-slate-400 text-sm">Minutes</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-cyan-400">4.9</div>
-                    <div className="text-slate-400 text-sm flex items-center justify-center gap-1">
-                      <Star className="w-3 h-3" />
-                      Rating
+                      <p className="text-white font-medium">Preview Available</p>
                     </div>
                   </div>
                 </div>
-              </CardContent>
-            </Card>
+              </Card>
+
+              <div>
+                <div className="flex flex-wrap gap-3 mb-4">
+                  <Badge className={categoryColors[video.category]}>{video.category}</Badge>
+                  {video.skill_level !== "all" && (
+                    <Badge className={`${skillLevelColors[video.skill_level]} text-white`}>
+                      {video.skill_level}
+                    </Badge>
+                  )}
+                  <Badge variant="outline" className="border-slate-600 text-slate-300">
+                    <Clock className="w-3 h-3 mr-1" />
+                    {video.duration} minutes
+                  </Badge>
+                </div>
+
+                <h1 className="text-4xl md:text-5xl font-bold mb-4">{video.title}</h1>
+                <p className="text-slate-300 text-lg mb-6 leading-relaxed">{courseHook}</p>
+                {renderDescriptionBlock(false)}
+              </div>
+
+              {renderInstructorCard()}
+              {renderReviewsSection()}
+
+              <Card className="bg-gradient-to-r from-blue-600/20 to-cyan-500/20 border-blue-500/30">
+                <CardContent className="p-6 text-center">
+                  <h3 className="text-2xl font-bold text-white mb-2">
+                    Ready to Start Training?
+                  </h3>
+                  <p className="text-slate-300 mb-4">
+                    Unlock instant access and train at your own pace.
+                  </p>
+                  <Button
+                    onClick={handleAddToCart}
+                    disabled={isAddingToCart}
+                    className="bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white"
+                  >
+                    <ShoppingCart className="w-4 h-4 mr-2" />
+                    {isAddingToCart ? "Adding..." : "Unlock Course"}
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     </div>
   );
