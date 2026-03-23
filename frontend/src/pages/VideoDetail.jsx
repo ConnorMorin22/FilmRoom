@@ -337,7 +337,39 @@ export default function VideoDetail() {
                   }`}
                 >
                   <ReactMarkdown
-                    className="prose prose-slate prose-invert max-w-none text-slate-200 leading-7 prose-p:my-4 prose-p:leading-7 prose-h2:mt-8 prose-h2:mb-3 prose-h2:text-2xl prose-h2:font-bold prose-h2:text-white prose-h3:mt-7 prose-h3:mb-2 prose-h3:text-xl prose-h3:font-semibold prose-h3:text-white prose-strong:font-semibold prose-strong:text-white prose-ul:my-4 prose-ul:list-disc prose-ul:pl-6 prose-ol:my-4 prose-ol:list-decimal prose-ol:pl-6 prose-li:my-1 prose-li:pl-1 prose-li:marker:text-slate-300"
+                    className="prose prose-slate prose-invert max-w-none text-slate-200"
+                    components={{
+                      h2: ({ ...props }) => (
+                        <h2
+                          className="mt-8 mb-3 text-2xl font-bold tracking-tight text-white"
+                          {...props}
+                        />
+                      ),
+                      h3: ({ ...props }) => (
+                        <h3
+                          className="mt-7 mb-2 text-xl font-semibold tracking-tight text-white"
+                          {...props}
+                        />
+                      ),
+                      p: ({ ...props }) => (
+                        <p className="my-4 text-base leading-7 text-slate-200" {...props} />
+                      ),
+                      ul: ({ ...props }) => (
+                        <ul className="my-4 list-disc pl-6 text-slate-200" {...props} />
+                      ),
+                      ol: ({ ...props }) => (
+                        <ol className="my-4 list-decimal pl-6 text-slate-200" {...props} />
+                      ),
+                      li: ({ ...props }) => (
+                        <li
+                          className="my-1 pl-1 leading-7 marker:text-slate-300"
+                          {...props}
+                        />
+                      ),
+                      strong: ({ ...props }) => (
+                        <strong className="font-semibold text-white" {...props} />
+                      ),
+                    }}
                   >
                     {markdownDescription || "No description available."}
                   </ReactMarkdown>
