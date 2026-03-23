@@ -1,6 +1,7 @@
 
-import React, { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import ReactMarkdown from "react-markdown";
 import { createPageUrl } from "@/utils";
 import { Video } from "@/api/entities";
 import { Review } from "@/api/customClient";
@@ -15,7 +16,6 @@ import {
   CheckCircle,
   ArrowLeft,
   Star,
-  Users,
   Target,
   Instagram,
   Twitter,
@@ -25,7 +25,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
 
 export default function VideoDetail() {
   const navigate = useNavigate();
@@ -46,6 +45,7 @@ export default function VideoDetail() {
   });
   const [reviewError, setReviewError] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
+  const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
 
   const loadVideoDetail = useCallback(async () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -176,6 +176,27 @@ export default function VideoDetail() {
     all: "bg-gray-500"
   };
 
+  const descriptionText = useMemo(() => {
+    if (typeof video?.description === "string") {
+      return video.description.trim();
+    }
+    return "";
+  }, [video?.description]);
+
+  const shouldShowDescriptionToggle = useMemo(() => {
+    if (!descriptionText) return false;
+
+    const lines = descriptionText.split("\n").length;
+    const hasListFormatting = /(^|\n)\s*[-*]\s+/.test(descriptionText);
+
+    // Keep the toggle simple: show it for visibly long or structured descriptions.
+    return descriptionText.length > 280 || lines > 5 || hasListFormatting;
+  }, [descriptionText]);
+
+  useEffect(() => {
+    setIsDescriptionExpanded(false);
+  }, [video?.id]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh] bg-slate-900">
@@ -278,15 +299,41 @@ export default function VideoDetail() {
               </div>
 
               <h1 className="text-4xl font-bold mb-4">{video.title}</h1>
-              <p className="text-slate-300 text-lg leading-relaxed mb-8">
-                {video.description}
-              </p>
+              <div className="mb-8">
+                <div
+                  className={`relative overflow-hidden transition-all duration-300 ${
+                    !isDescriptionExpanded && shouldShowDescriptionToggle
+                      ? "max-h-[9rem]"
+                      : "max-h-[100rem]"
+                  }`}
+                >
+                  <ReactMarkdown
+                    className="prose prose-slate prose-invert max-w-none text-slate-200 leading-relaxed prose-headings:text-white prose-strong:text-white prose-p:leading-relaxed prose-li:marker:text-slate-400 prose-ul:my-4 prose-ol:my-4"
+                  >
+                    {descriptionText || "No description available."}
+                  </ReactMarkdown>
+
+                  {!isDescriptionExpanded && shouldShowDescriptionToggle && (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-slate-900 to-transparent" />
+                  )}
+                </div>
+
+                {shouldShowDescriptionToggle && (
+                  <Button
+                    variant="ghost"
+                    onClick={() => setIsDescriptionExpanded((prev) => !prev)}
+                    className="mt-3 px-0 text-blue-300 hover:text-blue-200 hover:bg-transparent"
+                  >
+                    {isDescriptionExpanded ? "Show Less" : "Show More"}
+                  </Button>
+                )}
+              </div>
 
               {/* Tags */}
               {video.tags && video.tags.length > 0 && (
                 <div className="mb-8">
                   <h3 className="text-lg font-semibold text-white mb-3">
-                    What You'll Learn
+                    What You&apos;ll Learn
                   </h3>
                   <div className="flex flex-wrap gap-2">
                     {video.tags.map((tag, index) => (

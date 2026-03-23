@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
+import { createPageUrl, getDescriptionPreviewText } from "@/utils";
 import { Purchase } from "@/api/entities";
 import { Video } from "@/api/entities";
 import { User } from "@/api/entities";
@@ -183,7 +183,7 @@ export default function Library() {
                       {video.title}
                     </h3>
                     <p className="text-slate-400 line-clamp-2 mb-4">
-                      {video.description}
+                      {getDescriptionPreviewText(video.description)}
                     </p>
 
                     <div className="flex items-center justify-between">

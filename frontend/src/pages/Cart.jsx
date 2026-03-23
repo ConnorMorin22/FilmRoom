@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
+import { createPageUrl, getDescriptionPreviewText } from "@/utils";
 import { CartItem } from "@/api/entities";
 import { Purchase } from "@/api/entities";
 import { Video } from "@/api/entities";
@@ -182,7 +182,7 @@ export default function Cart() {
                           by {video.instructor_name}
                         </p>
                         <p className="text-slate-300 text-sm line-clamp-2">
-                          {video.description}
+                          {getDescriptionPreviewText(video.description)}
                         </p>
                       </div>
                       <div className="text-right">

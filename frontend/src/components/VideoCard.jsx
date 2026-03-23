@@ -1,6 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
-import { createPageUrl } from "@/utils";
+import { createPageUrl, getDescriptionPreviewText } from "@/utils";
 import { Play, Clock, Star, Award } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 
 export default function VideoCard({ video, showAddToCart = true }) {
   const navigate = useNavigate();
+  const descriptionPreview = getDescriptionPreviewText(video.description);
   const categoryColors = {
     offense: "bg-red-500/20 text-red-200",
     defense: "bg-blue-500/20 text-blue-200",
@@ -60,7 +61,9 @@ export default function VideoCard({ video, showAddToCart = true }) {
         <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors mb-2">
           {video.title}
         </h3>
-          <p className="text-slate-400 line-clamp-2 mb-3">{video.description}</p>
+          <p className="text-slate-400 text-sm leading-relaxed line-clamp-2 mb-3">
+            {descriptionPreview}
+          </p>
         </div>
 
         <div className="flex items-center gap-3 mb-4">
