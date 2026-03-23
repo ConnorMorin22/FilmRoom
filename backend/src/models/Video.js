@@ -33,7 +33,14 @@ const videoSchema = new mongoose.Schema({
     type: String,
     required: [true, "Please add a video URL"],
   },
+  preview_url: {
+    type: String,
+    default: "",
+  },
   videoKey: {
+    type: String,
+  },
+  previewKey: {
     type: String,
   },
   stripeProductId: {
@@ -67,6 +74,18 @@ const videoSchema = new mongoose.Schema({
     default: true,
   },
   tags: [String],
+  timestamps: [
+    {
+      title: {
+        type: String,
+        trim: true,
+      },
+      time: {
+        type: Number,
+        min: 0,
+      },
+    },
+  ],
   created_date: {
     type: Date,
     default: Date.now,

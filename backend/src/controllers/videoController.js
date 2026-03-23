@@ -75,6 +75,7 @@ const mapVideoMediaUrls = (video) => ({
   ...video,
   thumbnail_url: maybeSignImageUrl(video.thumbnail_url),
   instructor_photo: maybeSignImageUrl(video.instructor_photo),
+  preview_url: maybeSignImageUrl(video.preview_url),
 });
 
 // @desc    Get all videos

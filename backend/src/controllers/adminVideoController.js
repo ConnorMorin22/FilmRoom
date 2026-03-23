@@ -45,6 +45,19 @@ const ensureS3Credentials = async () => {
   }
 };
 
+const normalizeTimestamps = (timestamps) => {
+  if (!Array.isArray(timestamps)) return [];
+  return timestamps
+    .map((chapter) => ({
+      title: (chapter?.title || "").trim(),
+      time: Number(chapter?.time),
+    }))
+    .filter(
+      (chapter) =>
+        chapter.title && Number.isFinite(chapter.time) && chapter.time >= 0
+    );
+};
+
 // @desc    Get presigned S3 upload URL
 // @route   POST /api/admin/videos/upload
 exports.getUploadUrl = async (req, res) => {
@@ -305,7 +318,9 @@ exports.createVideo = async (req, res) => {
       is_featured,
       is_active,
       preview_url,
+      previewKey,
       video_url,
+      timestamps,
     } = req.body;
 
     if (
@@ -350,6 +365,8 @@ exports.createVideo = async (req, res) => {
       is_featured,
       is_active,
       preview_url,
+      previewKey,
+      timestamps: normalizeTimestamps(timestamps),
     });
 
     return res.status(201).json({ success: true, video });
@@ -381,8 +398,10 @@ exports.updateVideo = async (req, res) => {
       "is_featured",
       "is_active",
       "preview_url",
+      "previewKey",
       "video_url",
       "videoKey",
+      "timestamps",
     ];
 
     const updates = Object.keys(req.body || {}).reduce((acc, key) => {
@@ -397,6 +416,10 @@ exports.updateVideo = async (req, res) => {
       if (!updates.video_url) {
         updates.video_url = buildPublicUrl(getBucketName(), req.body.s3Key);
       }
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, "timestamps")) {
+      updates.timestamps = normalizeTimestamps(req.body.timestamps);
     }
 
     const video = await Video.findByIdAndUpdate(id, updates, {

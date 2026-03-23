@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { createPageUrl, getDescriptionPreviewText } from "@/utils";
@@ -45,6 +45,7 @@ export default function VideoDetail() {
   const [reviewError, setReviewError] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const playerRef = useRef(null);
 
   const loadVideoDetail = useCallback(async () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -228,6 +229,36 @@ export default function VideoDetail() {
     // Keep the toggle simple: show it for visibly long or structured descriptions.
     return descriptionText.length > 280 || lines > 5 || hasListFormatting;
   }, [descriptionText]);
+
+  const chapterList = useMemo(() => {
+    if (!Array.isArray(video?.timestamps)) return [];
+    return video.timestamps
+      .map((chapter) => ({
+        title: (chapter?.title || "").trim(),
+        time: Number(chapter?.time),
+      }))
+      .filter((chapter) => chapter.title && Number.isFinite(chapter.time) && chapter.time >= 0)
+      .sort((a, b) => a.time - b.time);
+  }, [video?.timestamps]);
+
+  const formatChapterTime = (seconds) => {
+    const total = Math.max(0, Math.floor(seconds));
+    const hrs = Math.floor(total / 3600);
+    const mins = Math.floor((total % 3600) / 60);
+    const secs = total % 60;
+    if (hrs > 0) {
+      return `${hrs}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+    }
+    return `${mins}:${String(secs).padStart(2, "0")}`;
+  };
+
+  const seekToChapter = (time) => {
+    if (!playerRef.current || !Number.isFinite(time)) return;
+    playerRef.current.currentTime = time;
+    playerRef.current.play().catch(() => {
+      // Ignore autoplay errors and still move user to position.
+    });
+  };
 
   useEffect(() => {
     setIsDescriptionExpanded(false);
@@ -500,6 +531,7 @@ export default function VideoDetail() {
                     </div>
                   ) : streamUrl ? (
                     <video
+                      ref={playerRef}
                       className="w-full h-full"
                       src={streamUrl}
                       controls
@@ -541,8 +573,26 @@ export default function VideoDetail() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-4">
-                    <h4 className="text-white font-medium mb-1">Chapters</h4>
-                    <p className="text-slate-400 text-sm">Chapters coming soon.</p>
+                    <h4 className="text-white font-medium mb-2">Chapters</h4>
+                    {chapterList.length === 0 ? (
+                      <p className="text-slate-400 text-sm">Chapters coming soon.</p>
+                    ) : (
+                      <div className="space-y-2">
+                        {chapterList.map((chapter, index) => (
+                          <button
+                            key={`${chapter.title}-${chapter.time}-${index}`}
+                            type="button"
+                            onClick={() => seekToChapter(chapter.time)}
+                            className="w-full text-left rounded-md border border-transparent px-2 py-2 hover:border-slate-700 hover:bg-slate-800/70 transition"
+                          >
+                            <div className="text-xs text-blue-300 font-medium">
+                              {formatChapterTime(chapter.time)}
+                            </div>
+                            <div className="text-sm text-slate-200">{chapter.title}</div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
                   </div>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between text-slate-300">
@@ -657,22 +707,33 @@ export default function VideoDetail() {
             <div className="lg:col-span-2 lg:order-1 order-2 space-y-8">
               <Card className="bg-slate-800 border-slate-700 overflow-hidden">
                 <div className="relative aspect-video">
-                  <img
-                    src={
-                      video.thumbnail_url ||
-                      `https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800&h=600&fit=crop`
-                    }
-                    alt={video.title}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                    <div className="text-center">
-                      <div className="w-20 h-20 bg-blue-500/80 backdrop-blur rounded-full flex items-center justify-center mb-4">
-                        <Play className="w-10 h-10 text-white ml-1" />
+                  {video.preview_url ? (
+                    <video
+                      className="w-full h-full bg-black"
+                      src={video.preview_url}
+                      controls
+                      playsInline
+                    />
+                  ) : (
+                    <>
+                      <img
+                        src={
+                          video.thumbnail_url ||
+                          `https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800&h=600&fit=crop`
+                        }
+                        alt={video.title}
+                        className="w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                        <div className="text-center">
+                          <div className="w-20 h-20 bg-blue-500/80 backdrop-blur rounded-full flex items-center justify-center mb-4">
+                            <Play className="w-10 h-10 text-white ml-1" />
+                          </div>
+                          <p className="text-white font-medium">Preview Available</p>
+                        </div>
                       </div>
-                      <p className="text-white font-medium">Preview Available</p>
-                    </div>
-                  </div>
+                    </>
+                  )}
                 </div>
               </Card>
 

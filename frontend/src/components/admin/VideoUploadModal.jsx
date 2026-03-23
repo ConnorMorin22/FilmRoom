@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Video } from "@/api/entities";
 import { UploadFile } from "@/api/integrations";
-import { X, Upload, Play } from "lucide-react";
+import { X, Upload, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -63,6 +63,45 @@ const parseSocials = (socials) => {
   return initial;
 };
 
+const formatChapterInput = (seconds) => {
+  if (!Number.isFinite(seconds) || seconds < 0) return "";
+  const total = Math.floor(seconds);
+  const hrs = Math.floor(total / 3600);
+  const mins = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+  if (hrs > 0) {
+    return `${hrs}:${String(mins).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }
+  return `${mins}:${String(secs).padStart(2, "0")}`;
+};
+
+const parseChapterInputToSeconds = (value) => {
+  if (!value) return null;
+  const normalized = value.trim();
+  if (!normalized) return null;
+
+  if (/^\d+$/.test(normalized)) {
+    return Number(normalized);
+  }
+
+  const parts = normalized.split(":").map((part) => part.trim());
+  if (parts.some((part) => !/^\d+$/.test(part))) return null;
+
+  if (parts.length === 2) {
+    const [mins, secs] = parts.map(Number);
+    if (secs > 59) return null;
+    return mins * 60 + secs;
+  }
+
+  if (parts.length === 3) {
+    const [hrs, mins, secs] = parts.map(Number);
+    if (mins > 59 || secs > 59) return null;
+    return hrs * 3600 + mins * 60 + secs;
+  }
+
+  return null;
+};
+
 const buildInitialState = (video) => ({
   title: video?.title || "",
   description: video?.description || "",
@@ -73,6 +112,7 @@ const buildInitialState = (video) => ({
   instructor_socials: parseSocials(video?.instructor_socials),
   video_url: video?.video_url || "",
   s3Key: video?.videoKey || "",
+  previewKey: video?.previewKey || "",
   stripeProductId: video?.stripeProductId || "",
   preview_url: video?.preview_url || "",
   thumbnail_url: video?.thumbnail_url || "",
@@ -80,6 +120,12 @@ const buildInitialState = (video) => ({
   price: video?.price?.toString() || "",
   skill_level: video?.skill_level || "all",
   tags: Array.isArray(video?.tags) ? video.tags.join(", ") : "",
+  timestamps: Array.isArray(video?.timestamps)
+    ? video.timestamps.map((chapter) => ({
+        title: chapter?.title || "",
+        timeInput: formatChapterInput(chapter?.time),
+      }))
+    : [],
   is_featured: Boolean(video?.is_featured),
   is_active: video?.is_active !== false,
 });
@@ -104,6 +150,29 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
     setVideoData(prev => ({
       ...prev,
       [field]: value
+    }));
+  };
+
+  const handleChapterChange = (index, field, value) => {
+    setVideoData((prev) => ({
+      ...prev,
+      timestamps: prev.timestamps.map((chapter, chapterIndex) =>
+        chapterIndex === index ? { ...chapter, [field]: value } : chapter
+      ),
+    }));
+  };
+
+  const addChapter = () => {
+    setVideoData((prev) => ({
+      ...prev,
+      timestamps: [...prev.timestamps, { title: "", timeInput: "" }],
+    }));
+  };
+
+  const removeChapter = (index) => {
+    setVideoData((prev) => ({
+      ...prev,
+      timestamps: prev.timestamps.filter((_, chapterIndex) => chapterIndex !== index),
     }));
   };
 
@@ -141,7 +210,8 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
       setVideoData(prev => ({
         ...prev,
         [field]: file_url,
-        ...(field === "video_url" ? { s3Key } : {})
+        ...(field === "video_url" ? { s3Key } : {}),
+        ...(field === "preview_url" ? { previewKey: s3Key } : {}),
       }));
     } catch (error) {
       console.error("Error uploading file:", error);
@@ -159,12 +229,31 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
     setError("");
 
     try {
+      const chapterValidation = (videoData.timestamps || []).map((chapter, index) => {
+        const title = (chapter.title || "").trim();
+        const time = parseChapterInputToSeconds(chapter.timeInput || "");
+        return { index, title, time };
+      });
+
+      const invalidChapter = chapterValidation.find(
+        (chapter) => (chapter.title && chapter.time === null) || (!chapter.title && chapter.time !== null)
+      );
+      if (invalidChapter) {
+        setError(
+          `Chapter ${invalidChapter.index + 1} must include both a title and a valid time (e.g. 1:30 or 01:02:15).`
+        );
+        return;
+      }
+
       const processedData = {
         ...videoData,
         duration: parseFloat(videoData.duration) || 0,
         price: parseFloat(videoData.price) || 0,
         tags: videoData.tags ? videoData.tags.split(',').map(tag => tag.trim()) : [],
         instructor_socials: normalizeSocials(videoData.instructor_socials),
+        timestamps: chapterValidation
+          .filter((chapter) => chapter.title && chapter.time !== null)
+          .map((chapter) => ({ title: chapter.title, time: chapter.time })),
       };
 
       if (!processedData.thumbnail_url || processedData.duration <= 0) {
@@ -199,7 +288,9 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
           is_featured: processedData.is_featured,
           is_active: processedData.is_active,
           preview_url: processedData.preview_url,
+          previewKey: processedData.previewKey || undefined,
           video_url: processedData.video_url,
+          timestamps: processedData.timestamps,
         });
       } else {
         if (!processedData.s3Key) {
@@ -224,7 +315,9 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
           is_featured: processedData.is_featured,
           is_active: processedData.is_active,
           preview_url: processedData.preview_url,
+          previewKey: processedData.previewKey || undefined,
           video_url: processedData.video_url,
+          timestamps: processedData.timestamps,
         });
       }
       onVideoUploaded();
@@ -310,247 +403,336 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
             {formatBytes(FILE_LIMITS.thumbnail_url)}
           </div>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Basic Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="title" className="text-white">Video Title</Label>
-                <Input
-                  id="title"
-                  value={videoData.title}
-                  onChange={(e) => handleInputChange("title", e.target.value)}
-                  className="bg-slate-700 border-slate-600 text-white"
-                  required
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="category" className="text-white">Category</Label>
-                <Select value={videoData.category} onValueChange={(value) => handleInputChange("category", value)}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-700 border-slate-600">
-                    <SelectItem value="offense" className="text-white">Offense</SelectItem>
-                    <SelectItem value="defense" className="text-white">Defense</SelectItem>
-                    <SelectItem value="faceoffs" className="text-white">Faceoffs</SelectItem>
-                    <SelectItem value="goalies" className="text-white">Goalies</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+            <Card className="bg-slate-900/60 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-white">Sales</CardTitle>
+                <p className="text-sm text-slate-400">
+                  Controls the pre-purchase conversion experience.
+                </p>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="title" className="text-white">Video Title</Label>
+                    <Input
+                      id="title"
+                      value={videoData.title}
+                      onChange={(e) => handleInputChange("title", e.target.value)}
+                      className="bg-slate-700 border-slate-600 text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="category" className="text-white">Category</Label>
+                    <Select
+                      value={videoData.category}
+                      onValueChange={(value) => handleInputChange("category", value)}
+                    >
+                      <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-700 border-slate-600">
+                        <SelectItem value="offense" className="text-white">Offense</SelectItem>
+                        <SelectItem value="defense" className="text-white">Defense</SelectItem>
+                        <SelectItem value="faceoffs" className="text-white">Faceoffs</SelectItem>
+                        <SelectItem value="goalies" className="text-white">Goalies</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-            <div>
-              <Label htmlFor="description" className="text-white">Description</Label>
-              <Textarea
-                id="description"
-                value={videoData.description}
-                onChange={(e) => handleInputChange("description", e.target.value)}
-                className="bg-slate-700 border-slate-600 text-white h-24"
-                required
-              />
-            </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="price" className="text-white">Price ($)</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={videoData.price}
+                      onChange={(e) => handleInputChange("price", e.target.value)}
+                      className="bg-slate-700 border-slate-600 text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="stripeProductId" className="text-white">Stripe Product ID</Label>
+                    <Input
+                      id="stripeProductId"
+                      value={videoData.stripeProductId}
+                      onChange={(e) => handleInputChange("stripeProductId", e.target.value)}
+                      className="bg-slate-700 border-slate-600 text-white"
+                    />
+                  </div>
+                </div>
 
-            <div>
-              <Label htmlFor="stripeProductId" className="text-white">Stripe Product ID</Label>
-              <Input
-                id="stripeProductId"
-                value={videoData.stripeProductId}
-                onChange={(e) => handleInputChange("stripeProductId", e.target.value)}
-                className="bg-slate-700 border-slate-600 text-white"
-              />
-            </div>
-
-            {/* Instructor Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="instructor_name" className="text-white">Instructor Name</Label>
-                <Input
-                  id="instructor_name"
-                  value={videoData.instructor_name}
-                  onChange={(e) => handleInputChange("instructor_name", e.target.value)}
-                  className="bg-slate-700 border-slate-600 text-white"
-                  required
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor="instructor_photo" className="text-white">Instructor Photo</Label>
-                <div className="flex gap-2">
+                <div>
+                  <Label htmlFor="preview_url" className="text-white">Preview/Trailer (Optional)</Label>
                   <Input
-                    id="instructor_photo"
+                    id="preview_url"
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) =>
+                      e.target.files[0] && handleFileUpload(e.target.files[0], "preview_url")
+                    }
+                    className="bg-slate-700 border-slate-600 text-white"
+                  />
+                  {videoData.preview_url && (
+                    <div className="mt-2">
+                      <video
+                        src={videoData.preview_url}
+                        controls
+                        className="w-full max-w-sm rounded border border-slate-600"
+                      />
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <Label htmlFor="thumbnail_url" className="text-white">Thumbnail Image</Label>
+                  {videoData.thumbnail_url && (
+                    <div className="mt-2 mb-3">
+                      <img
+                        src={videoData.thumbnail_url}
+                        alt="Current thumbnail"
+                        className="w-40 h-24 object-cover rounded border border-slate-600"
+                      />
+                    </div>
+                  )}
+                  <Input
+                    id="thumbnail_url"
                     type="file"
                     accept="image/*"
-                    onChange={(e) => e.target.files[0] && handleFileUpload(e.target.files[0], "instructor_photo")}
-                    className="bg-slate-700 border-slate-600 text-white flex-1"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <Label htmlFor="instructor_bio" className="text-white">Instructor Bio</Label>
-              <Textarea
-                id="instructor_bio"
-                value={videoData.instructor_bio}
-                onChange={(e) => handleInputChange("instructor_bio", e.target.value)}
-                className="bg-slate-700 border-slate-600 text-white h-20"
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {SOCIAL_FIELDS.map((field) => (
-                <div key={field.key}>
-                  <Label htmlFor={`social_${field.key}`} className="text-white">
-                    {field.label}
-                  </Label>
-                  <Input
-                    id={`social_${field.key}`}
-                    value={videoData.instructor_socials[field.key]}
                     onChange={(e) =>
-                      handleInputChange("instructor_socials", {
-                        ...videoData.instructor_socials,
-                        [field.key]: e.target.value,
-                      })
+                      e.target.files[0] && handleFileUpload(e.target.files[0], "thumbnail_url")
                     }
-                    placeholder="https://"
                     className="bg-slate-700 border-slate-600 text-white"
                   />
                 </div>
-              ))}
-            </div>
 
-            {/* Video Files */}
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="video_url" className="text-white">Full Video File</Label>
-                {isEditMode && (
-                  <p className="text-xs text-slate-400 mt-1">
-                    Select a new file to replace the current video.
-                  </p>
-                )}
-                <Input
-                  id="video_url"
-                  type="file"
-                  accept="video/*"
-                  onChange={(e) => e.target.files[0] && handleFileUpload(e.target.files[0], "video_url")}
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="preview_url" className="text-white">Preview/Trailer (Optional)</Label>
-                <Input
-                  id="preview_url"
-                  type="file"
-                  accept="video/*"
-                  onChange={(e) => e.target.files[0] && handleFileUpload(e.target.files[0], "preview_url")}
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-              </div>
-
-              <div>
-                <Label htmlFor="thumbnail_url" className="text-white">Thumbnail Image</Label>
-                {videoData.thumbnail_url && (
-                  <div className="mt-2 mb-3">
-                    <img
-                      src={videoData.thumbnail_url}
-                      alt="Current thumbnail"
-                      className="w-40 h-24 object-cover rounded border border-slate-600"
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="instructor_name" className="text-white">Instructor Name</Label>
+                    <Input
+                      id="instructor_name"
+                      value={videoData.instructor_name}
+                      onChange={(e) => handleInputChange("instructor_name", e.target.value)}
+                      className="bg-slate-700 border-slate-600 text-white"
+                      required
                     />
-                    <p className="text-xs text-slate-400 mt-1">
-                      {isEditMode ? "Current thumbnail" : "Uploaded thumbnail"}
-                    </p>
                   </div>
-                )}
-                <Input
-                  id="thumbnail_url"
-                  type="file"
-                  accept="image/*"
-                  onChange={(e) => e.target.files[0] && handleFileUpload(e.target.files[0], "thumbnail_url")}
-                  className="bg-slate-700 border-slate-600 text-white"
-                />
-                <p className="text-xs text-slate-400 mt-1">
-                  Upload a new image to replace the thumbnail.
+                  <div>
+                    <Label htmlFor="instructor_photo" className="text-white">Instructor Photo</Label>
+                    <Input
+                      id="instructor_photo"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) =>
+                        e.target.files[0] && handleFileUpload(e.target.files[0], "instructor_photo")
+                      }
+                      className="bg-slate-700 border-slate-600 text-white"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="instructor_bio" className="text-white">Instructor Bio</Label>
+                  <Textarea
+                    id="instructor_bio"
+                    value={videoData.instructor_bio}
+                    onChange={(e) => handleInputChange("instructor_bio", e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white h-20"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {SOCIAL_FIELDS.map((field) => (
+                    <div key={field.key}>
+                      <Label htmlFor={`social_${field.key}`} className="text-white">
+                        {field.label}
+                      </Label>
+                      <Input
+                        id={`social_${field.key}`}
+                        value={videoData.instructor_socials[field.key]}
+                        onChange={(e) =>
+                          handleInputChange("instructor_socials", {
+                            ...videoData.instructor_socials,
+                            [field.key]: e.target.value,
+                          })
+                        }
+                        placeholder="https://"
+                        className="bg-slate-700 border-slate-600 text-white"
+                      />
+                    </div>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-6 pt-1">
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="is_featured"
+                      checked={videoData.is_featured}
+                      onCheckedChange={(checked) => handleInputChange("is_featured", checked)}
+                    />
+                    <Label htmlFor="is_featured" className="text-white">Featured Video</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <Checkbox
+                      id="is_active"
+                      checked={videoData.is_active}
+                      onCheckedChange={(checked) => handleInputChange("is_active", checked)}
+                    />
+                    <Label htmlFor="is_active" className="text-white">Active</Label>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card className="bg-slate-900/60 border-slate-700">
+              <CardHeader>
+                <CardTitle className="text-white">Purchased</CardTitle>
+                <p className="text-sm text-slate-400">
+                  Controls the owned course/player experience.
                 </p>
-              </div>
-            </div>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="video_url" className="text-white">Full Video File</Label>
+                  {isEditMode && (
+                    <p className="text-xs text-slate-400 mt-1">
+                      Select a new file to replace the current full course video.
+                    </p>
+                  )}
+                  <Input
+                    id="video_url"
+                    type="file"
+                    accept="video/*"
+                    onChange={(e) =>
+                      e.target.files[0] && handleFileUpload(e.target.files[0], "video_url")
+                    }
+                    className="bg-slate-700 border-slate-600 text-white"
+                  />
+                </div>
 
-            {/* Video Details */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div>
-                <Label htmlFor="duration" className="text-white">Duration (minutes)</Label>
-                <Input
-                  id="duration"
-                  type="number"
-                  min="1"
-                  value={videoData.duration}
-                  onChange={(e) => handleInputChange("duration", e.target.value)}
-                  className="bg-slate-700 border-slate-600 text-white"
-                  required
-                />
-              </div>
+                <div>
+                  <Label htmlFor="description" className="text-white">Full Course Description (Markdown)</Label>
+                  <Textarea
+                    id="description"
+                    value={videoData.description}
+                    onChange={(e) => handleInputChange("description", e.target.value)}
+                    className="bg-slate-700 border-slate-600 text-white h-36"
+                    required
+                  />
+                </div>
 
-              <div>
-                <Label htmlFor="price" className="text-white">Price ($)</Label>
-                <Input
-                  id="price"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={videoData.price}
-                  onChange={(e) => handleInputChange("price", e.target.value)}
-                  className="bg-slate-700 border-slate-600 text-white"
-                  required
-                />
-              </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="duration" className="text-white">Duration (minutes)</Label>
+                    <Input
+                      id="duration"
+                      type="number"
+                      min="1"
+                      value={videoData.duration}
+                      onChange={(e) => handleInputChange("duration", e.target.value)}
+                      className="bg-slate-700 border-slate-600 text-white"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="skill_level" className="text-white">Skill Level</Label>
+                    <Select
+                      value={videoData.skill_level}
+                      onValueChange={(value) => handleInputChange("skill_level", value)}
+                    >
+                      <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className="bg-slate-700 border-slate-600">
+                        <SelectItem value="all" className="text-white">All Levels</SelectItem>
+                        <SelectItem value="beginner" className="text-white">Beginner</SelectItem>
+                        <SelectItem value="intermediate" className="text-white">Intermediate</SelectItem>
+                        <SelectItem value="advanced" className="text-white">Advanced</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
 
-              <div>
-                <Label htmlFor="skill_level" className="text-white">Skill Level</Label>
-                <Select value={videoData.skill_level} onValueChange={(value) => handleInputChange("skill_level", value)}>
-                  <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="bg-slate-700 border-slate-600">
-                    <SelectItem value="all" className="text-white">All Levels</SelectItem>
-                    <SelectItem value="beginner" className="text-white">Beginner</SelectItem>
-                    <SelectItem value="intermediate" className="text-white">Intermediate</SelectItem>
-                    <SelectItem value="advanced" className="text-white">Advanced</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
+                <div>
+                  <Label htmlFor="tags" className="text-white">Tags (comma separated)</Label>
+                  <Input
+                    id="tags"
+                    value={videoData.tags}
+                    onChange={(e) => handleInputChange("tags", e.target.value)}
+                    placeholder="dodging, shooting, fundamentals"
+                    className="bg-slate-700 border-slate-600 text-white"
+                  />
+                </div>
 
-            <div>
-              <Label htmlFor="tags" className="text-white">Tags (comma separated)</Label>
-              <Input
-                id="tags"
-                value={videoData.tags}
-                onChange={(e) => handleInputChange("tags", e.target.value)}
-                placeholder="dodging, shooting, fundamentals"
-                className="bg-slate-700 border-slate-600 text-white"
-              />
-            </div>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Label className="text-white">Timestamps / Chapters</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addChapter}
+                      className="border-slate-600 text-slate-200 hover:bg-slate-700"
+                    >
+                      <Plus className="w-4 h-4 mr-1" />
+                      Add Chapter
+                    </Button>
+                  </div>
 
-            {/* Checkboxes */}
-            <div className="flex items-center space-x-6">
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="is_featured"
-                  checked={videoData.is_featured}
-                  onCheckedChange={(checked) => handleInputChange("is_featured", checked)}
-                />
-                <Label htmlFor="is_featured" className="text-white">Featured Video</Label>
-              </div>
-              
-              <div className="flex items-center space-x-2">
-                <Checkbox
-                  id="is_active"
-                  checked={videoData.is_active}
-                  onCheckedChange={(checked) => handleInputChange("is_active", checked)}
-                />
-                <Label htmlFor="is_active" className="text-white">Active</Label>
-              </div>
-            </div>
+                  {videoData.timestamps.length === 0 ? (
+                    <p className="text-sm text-slate-400">
+                      No chapters yet. Add chapters to power the owned player navigation.
+                    </p>
+                  ) : (
+                    <div className="space-y-2">
+                      {videoData.timestamps.map((chapter, index) => (
+                        <div
+                          key={`chapter-${index}`}
+                          className="grid grid-cols-1 md:grid-cols-12 gap-2 items-center bg-slate-800/70 border border-slate-700 rounded p-2"
+                        >
+                          <div className="md:col-span-7">
+                            <Input
+                              value={chapter.title}
+                              onChange={(e) =>
+                                handleChapterChange(index, "title", e.target.value)
+                              }
+                              placeholder="Chapter title"
+                              className="bg-slate-700 border-slate-600 text-white"
+                            />
+                          </div>
+                          <div className="md:col-span-3">
+                            <Input
+                              value={chapter.timeInput}
+                              onChange={(e) =>
+                                handleChapterChange(index, "timeInput", e.target.value)
+                              }
+                              placeholder="mm:ss or hh:mm:ss"
+                              className="bg-slate-700 border-slate-600 text-white"
+                            />
+                          </div>
+                          <div className="md:col-span-2 flex justify-end">
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeChapter(index)}
+                              className="text-red-400 hover:text-red-300 hover:bg-red-500/10"
+                              aria-label={`Remove chapter ${index + 1}`}
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
 
             {/* Submit */}
             <div className="flex justify-end gap-3 pt-6">
