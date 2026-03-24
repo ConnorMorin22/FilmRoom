@@ -8,6 +8,7 @@ import Admin from "./Admin";
 import Login from "./Login";
 import Register from "./Register";
 import Instructors from "./Instructors";
+import InstructorDetail from "./InstructorDetail";
 
 import {
   BrowserRouter as Router,
@@ -26,9 +27,13 @@ const PAGES = {
   Login: Login,
   Register: Register,
   Instructors: Instructors,
+  InstructorDetail: InstructorDetail,
 };
 
 function _getCurrentPage(url) {
+  if (url.startsWith("/instructors")) {
+    return "Instructors";
+  }
   if (url.endsWith("/")) {
     url = url.slice(0, -1);
   }
@@ -65,6 +70,7 @@ function PagesContent() {
         <Route path="/home" element={<Home />} />
         <Route path="/videos" element={<Videos />} />
         <Route path="/instructors" element={<Instructors />} />
+        <Route path="/instructors/:slug" element={<InstructorDetail />} />
         <Route path="/videodetail" element={<VideoDetail />} />
         <Route path="/library" element={<Library />} />
         <Route path="/cart" element={<Cart />} />

@@ -9,12 +9,37 @@ export const POSITION_LABEL = {
 export const ATHLETE_FALLBACK_PHOTO =
   "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop&crop=face";
 
+const PREFERRED_INSTRUCTOR_LINES = {
+  "liam entenmann": {
+    position: "Goalie",
+    school: "Notre Dame",
+    pro_team: "Atlas",
+  },
+  "mike sisselberger": {
+    position: "Faceoff Specialist",
+    school: "Lehigh",
+    pro_team: "Archers",
+  },
+  "xander dixon": {
+    position: "Attack",
+    school: "Virginia",
+    pro_team: "Atlas",
+  },
+};
+
 function credentialSnippet(text, max = 50) {
   if (!text || typeof text !== "string") return "";
   const t = text.trim().replace(/\s+/g, " ");
   if (!t) return "";
   return t.length <= max ? t : `${t.slice(0, max).trim()}…`;
 }
+
+const slugify = (value) =>
+  String(value || "")
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
 
 /**
  * Headline under instructor name (specific when bio hints league/level).
@@ -75,6 +100,9 @@ export function getInstructorCredibilityLine(bio, roleHeadline) {
 export function resolveInstructorForVideo(video) {
   const source = video?.instructor || null;
   const category = video?.category;
+  const resolvedName = source?.name || video?.instructor_name || "Instructor";
+  const normalizedName = String(resolvedName).trim().toLowerCase();
+  const preferredLine = PREFERRED_INSTRUCTOR_LINES[normalizedName] || null;
   const roleKey = source?.position
     ? Object.entries(POSITION_LABEL).find(
         ([, label]) => label.toLowerCase() === String(source.position).toLowerCase()
@@ -84,6 +112,7 @@ export function resolveInstructorForVideo(video) {
   const fallbackRole = getInstructorRoleHeadline(category, video?.instructor_bio);
   const roleHeadline =
     source?.headline ||
+    buildStructuredCredibilityLine(preferredLine || {}) ||
     buildStructuredCredibilityLine({
       position: source?.position,
       school: source?.school,
@@ -107,7 +136,7 @@ export function resolveInstructorForVideo(video) {
 
   return {
     id: source?.id || source?._id || video?.instructor_id || null,
-    name: source?.name || video?.instructor_name || "Instructor",
+    name: resolvedName,
     photo: source?.photo_url || video?.instructor_photo || ATHLETE_FALLBACK_PHOTO,
     roleKey: roleKey || "offense",
     roleHeadline,
@@ -119,7 +148,7 @@ export function resolveInstructorForVideo(video) {
         : Array.isArray(video?.instructor_socials)
         ? video.instructor_socials
         : [],
-    slug: source?.slug || "",
+    slug: source?.slug || slugify(resolvedName),
   };
 }
 
@@ -178,6 +207,7 @@ export function aggregateInstructorsFromVideos(videos) {
 
       return {
         name: entry.name,
+        slug: resolvedPrimary.slug || slugify(entry.name),
         photo:
           entry.photo ||
           resolvedPrimary.photo ||

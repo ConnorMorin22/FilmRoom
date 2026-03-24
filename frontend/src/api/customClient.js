@@ -119,6 +119,16 @@ export const Instructor = {
     const { data } = await api.delete(`/admin/instructors/${id}`);
     return data;
   },
+
+  async getBySlug(slug) {
+    const { data } = await api.get(`/instructors/${slug}`);
+    const instructor = data.instructor || null;
+    if (!instructor) return null;
+    return {
+      ...instructor,
+      id: instructor.id || instructor._id,
+    };
+  },
 };
 
 export const Review = {

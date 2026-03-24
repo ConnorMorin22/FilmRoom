@@ -147,18 +147,15 @@ export default function Instructors() {
                   )}
                   <p className="text-xs text-slate-500 mb-5">
                     {person.courseCount}{" "}
-                    {person.courseCount === 1 ? "course" : "courses"}{" "}
-                    available
+                    {person.courseCount === 1 ? "Course Available" : "Courses Available"}
                   </p>
-                  {person.primaryVideoId ? (
+                  {person.slug ? (
                     <Button
                       asChild
                       className="w-full bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white font-semibold"
                     >
                       <Link
-                        to={createPageUrl(
-                          `VideoDetail?id=${person.primaryVideoId}`
-                        )}
+                        to={`/instructors/${person.slug}`}
                         className="inline-flex items-center justify-center gap-2"
                       >
                         View Courses
