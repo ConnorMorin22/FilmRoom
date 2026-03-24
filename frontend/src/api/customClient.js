@@ -92,6 +92,35 @@ export const Video = {
   },
 };
 
+export const Instructor = {
+  async list({ includeInactive = false, admin = false } = {}) {
+    const path = admin
+      ? "/admin/instructors"
+      : `/instructors${includeInactive ? "?include_inactive=true" : ""}`;
+    const { data } = await api.get(path);
+    const instructors = (data.instructors || []).map((i) => ({
+      ...i,
+      id: i.id || i._id,
+    }));
+    return instructors;
+  },
+
+  async create(payload) {
+    const { data } = await api.post("/admin/instructors", payload);
+    return data.instructor;
+  },
+
+  async update(id, payload) {
+    const { data } = await api.put(`/admin/instructors/${id}`, payload);
+    return data.instructor;
+  },
+
+  async delete(id) {
+    const { data } = await api.delete(`/admin/instructors/${id}`);
+    return data;
+  },
+};
+
 export const Review = {
   async listForVideo(videoId) {
     const { data } = await api.get(`/videos/${videoId}/reviews`);

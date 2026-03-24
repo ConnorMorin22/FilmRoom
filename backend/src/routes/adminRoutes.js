@@ -10,6 +10,12 @@ const {
   updateVideo,
 } = require("../controllers/adminVideoController");
 const { getUsers, getPurchases } = require("../controllers/adminController");
+const {
+  getAdminInstructors,
+  createInstructor,
+  updateInstructor,
+  deleteInstructor,
+} = require("../controllers/adminInstructorController");
 const { protect } = require("../middleware/auth");
 const { requireAdmin } = require("../middleware/admin");
 
@@ -37,6 +43,10 @@ router.post("/videos", protect, requireAdmin, createVideo);
 router.put("/videos/:id", protect, requireAdmin, updateVideo);
 router.get("/users", protect, requireAdmin, getUsers);
 router.get("/purchases", protect, requireAdmin, getPurchases);
+router.get("/instructors", protect, requireAdmin, getAdminInstructors);
+router.post("/instructors", protect, requireAdmin, createInstructor);
+router.put("/instructors/:id", protect, requireAdmin, updateInstructor);
+router.delete("/instructors/:id", protect, requireAdmin, deleteInstructor);
 
 module.exports = router;
 

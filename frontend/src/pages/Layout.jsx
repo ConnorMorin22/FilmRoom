@@ -125,11 +125,11 @@ export default function Layout({ children, currentPageName }) {
           {children}
         </main>
 
-        <footer className="bg-slate-800 border-t border-slate-700">
-          <div className="max-w-7xl mx-auto px-4 py-8">
-            <div className="text-center">
-              <p className="text-slate-400">© 2024 FilmRoom. Elite lacrosse training platform.</p>
-            </div>
+        <footer className="border-t border-slate-800/80 bg-slate-900">
+          <div className="max-w-7xl mx-auto px-4 py-6">
+            <p className="text-center text-sm text-slate-500">
+              © FilmRoom. All rights reserved.
+            </p>
           </div>
         </footer>
       </div>
@@ -252,11 +252,11 @@ export default function Layout({ children, currentPageName }) {
         {children}
       </main>
 
-      <footer className="bg-slate-800 border-t border-slate-700">
-        <div className="max-w-7xl mx-auto px-4 py-8">
-          <div className="text-center">
-            <p className="text-slate-400">© 2024 FilmRoom. Elite lacrosse training platform.</p>
-          </div>
+      <footer className="border-t border-slate-800/80 bg-slate-900">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <p className="text-center text-sm text-slate-500">
+            © FilmRoom. All rights reserved.
+          </p>
         </div>
       </footer>
     </div>

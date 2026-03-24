@@ -9,6 +9,7 @@ const {
 const { createPresignedPost } = require("@aws-sdk/s3-presigned-post");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const Video = require("../models/Video");
+const Instructor = require("../models/Instructor");
 
 const getRegion = () =>
   process.env.AWS_REGION ||
@@ -56,6 +57,16 @@ const normalizeTimestamps = (timestamps) => {
       (chapter) =>
         chapter.title && Number.isFinite(chapter.time) && chapter.time >= 0
     );
+};
+
+const toLegacySocials = (instructor) => {
+  const socials = [];
+  if (!instructor) return socials;
+  if (instructor.instagram_url) socials.push({ platform: "instagram", url: instructor.instagram_url });
+  if (instructor.twitter_url) socials.push({ platform: "twitter", url: instructor.twitter_url });
+  if (instructor.youtube_url) socials.push({ platform: "youtube", url: instructor.youtube_url });
+  if (instructor.tiktok_url) socials.push({ platform: "tiktok", url: instructor.tiktok_url });
+  return socials;
 };
 
 // @desc    Get presigned S3 upload URL
@@ -321,19 +332,14 @@ exports.createVideo = async (req, res) => {
       previewKey,
       video_url,
       timestamps,
+      instructor_id,
+      instructorId,
     } = req.body;
 
-    if (
-      !title ||
-      !description ||
-      !s3Key ||
-      !price ||
-      !instructor ||
-      !category
-    ) {
+    if (!title || !description || !s3Key || !price || (!instructor && !instructor_id && !instructorId) || !category) {
       return res.status(400).json({
         error:
-          "title, description, s3Key, price, instructor, and category are required",
+          "title, description, s3Key, price, instructor/instructor_id, and category are required",
       });
     }
 
@@ -346,13 +352,23 @@ exports.createVideo = async (req, res) => {
     const bucket = getBucketName();
     const finalVideoUrl = video_url || buildPublicUrl(bucket, s3Key);
 
+    const selectedInstructorId = instructor_id || instructorId;
+    let selectedInstructor = null;
+    if (selectedInstructorId) {
+      selectedInstructor = await Instructor.findById(selectedInstructorId);
+      if (!selectedInstructor) {
+        return res.status(400).json({ error: "Invalid instructor_id" });
+      }
+    }
+
     const video = await Video.create({
       title,
       description,
-      instructor_name: instructor,
-      instructor_bio,
-      instructor_photo,
-      instructor_socials,
+      instructor_id: selectedInstructor?._id || undefined,
+      instructor_name: selectedInstructor?.name || instructor,
+      instructor_bio: selectedInstructor?.bio || instructor_bio,
+      instructor_photo: selectedInstructor?.photo_url || instructor_photo,
+      instructor_socials: selectedInstructor ? toLegacySocials(selectedInstructor) : instructor_socials,
       thumbnail_url,
       video_url: finalVideoUrl,
       videoKey: s3Key,
@@ -401,6 +417,7 @@ exports.updateVideo = async (req, res) => {
       "previewKey",
       "video_url",
       "videoKey",
+      "instructor_id",
       "timestamps",
     ];
 
@@ -420,6 +437,23 @@ exports.updateVideo = async (req, res) => {
 
     if (Object.prototype.hasOwnProperty.call(req.body || {}, "timestamps")) {
       updates.timestamps = normalizeTimestamps(req.body.timestamps);
+    }
+
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, "instructorId")) {
+      updates.instructor_id = req.body.instructorId || null;
+    }
+    if (Object.prototype.hasOwnProperty.call(req.body || {}, "instructor_id")) {
+      updates.instructor_id = req.body.instructor_id || null;
+    }
+    if (updates.instructor_id) {
+      const selectedInstructor = await Instructor.findById(updates.instructor_id);
+      if (!selectedInstructor) {
+        return res.status(400).json({ error: "Invalid instructor_id" });
+      }
+      updates.instructor_name = selectedInstructor.name || updates.instructor_name;
+      updates.instructor_bio = selectedInstructor.bio || updates.instructor_bio;
+      updates.instructor_photo = selectedInstructor.photo_url || updates.instructor_photo;
+      updates.instructor_socials = toLegacySocials(selectedInstructor);
     }
 
     const video = await Video.findByIdAndUpdate(id, updates, {

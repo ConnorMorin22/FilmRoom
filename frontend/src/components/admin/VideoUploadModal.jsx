@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Video } from "@/api/entities";
+import { Video, Instructor } from "@/api/entities";
 import { UploadFile } from "@/api/integrations";
 import { X, Upload, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -106,6 +106,7 @@ const buildInitialState = (video) => ({
   title: video?.title || "",
   description: video?.description || "",
   category: video?.category || "offense",
+  instructor_id: video?.instructor_id || video?.instructor?.id || "",
   instructor_name: video?.instructor_name || "",
   instructor_bio: video?.instructor_bio || "",
   instructor_photo: video?.instructor_photo || "",
@@ -137,6 +138,7 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
   const [uploadProgress, setUploadProgress] = useState(null);
   const [error, setError] = useState("");
   const [videoData, setVideoData] = useState(buildInitialState(video));
+  const [instructors, setInstructors] = useState([]);
   const isEditMode = Boolean(video);
   const initialStateRef = useRef(buildInitialState(video));
 
@@ -145,6 +147,21 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
     setVideoData(nextState);
     initialStateRef.current = nextState;
   }, [video]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rows = await Instructor.list({ admin: true });
+        if (!cancelled) setInstructors(rows || []);
+      } catch (err) {
+        console.error("Failed loading instructors:", err);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const handleInputChange = (field, value) => {
     setVideoData(prev => ({
@@ -276,6 +293,7 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
           s3Key: processedData.s3Key || undefined,
           stripeProductId: processedData.stripeProductId,
           price: processedData.price,
+          instructor_id: processedData.instructor_id || undefined,
           instructor_name: processedData.instructor_name,
           category: processedData.category,
           duration: processedData.duration,
@@ -303,6 +321,7 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
           s3Key: processedData.s3Key,
           stripeProductId: processedData.stripeProductId,
           price: processedData.price,
+          instructor_id: processedData.instructor_id || undefined,
           instructor: processedData.instructor_name,
           category: processedData.category,
           duration: processedData.duration,
@@ -508,6 +527,45 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
                     }
                     className="bg-slate-700 border-slate-600 text-white"
                   />
+                </div>
+
+                <div>
+                  <Label htmlFor="instructor_id" className="text-white">Link Instructor Profile</Label>
+                  <Select
+                    value={videoData.instructor_id || "none"}
+                    onValueChange={(value) => {
+                      const selected = value === "none" ? null : instructors.find((i) => i.id === value);
+                      handleInputChange("instructor_id", value === "none" ? "" : value);
+                      if (selected) {
+                        handleInputChange("instructor_name", selected.name || "");
+                        handleInputChange("instructor_bio", selected.bio || "");
+                        handleInputChange("instructor_photo", selected.photo_url || "");
+                        handleInputChange("instructor_socials", {
+                          instagram: selected.instagram_url || "",
+                          twitter: selected.twitter_url || "",
+                          youtube: selected.youtube_url || "",
+                          tiktok: selected.tiktok_url || "",
+                        });
+                      }
+                    }}
+                  >
+                    <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                      <SelectValue placeholder="Select instructor" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-slate-700 border-slate-600">
+                      <SelectItem value="none" className="text-white">None (legacy fields only)</SelectItem>
+                      {instructors.map((ins) => (
+                        <SelectItem key={ins.id} value={ins.id} className="text-white">
+                          {ins.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {videoData.instructor_id ? (
+                    <p className="text-xs text-slate-400 mt-2">
+                      Profile data is sourced from the selected instructor. Legacy fields remain editable for fallback.
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

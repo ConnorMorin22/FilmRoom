@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { Video } from "@/api/entities";
+import { Instructor } from "@/api/entities";
 import { Purchase } from "@/api/entities";
 import { User } from "@/api/entities";
 import { 
@@ -27,11 +28,13 @@ import {
 } from "@/components/ui/table";
 
 import VideoUploadModal from "../components/admin/VideoUploadModal";
+import InstructorManager from "../components/admin/InstructorManager";
 
 export default function Admin() {
   const [videos, setVideos] = useState([]);
   const [purchases, setPurchases] = useState([]);
   const [users, setUsers] = useState([]);
+  const [instructors, setInstructors] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [editingVideo, setEditingVideo] = useState(null);
@@ -47,15 +50,17 @@ export default function Admin() {
   }, []);
 
   const loadAdminData = async () => {
-    const [videoData, purchaseData, userData] = await Promise.all([
+    const [videoData, purchaseData, userData, instructorData] = await Promise.all([
       Video.list("-created_date"),
       Purchase.filter({ payment_status: "completed" }, "-created_date"),
-      User.list("-created_date")
+      User.list("-created_date"),
+      Instructor.list({ admin: true }),
     ]);
 
     setVideos(videoData);
     setPurchases(purchaseData);
     setUsers(userData);
+    setInstructors(instructorData);
 
     // Calculate stats
     const totalRevenue = purchaseData.reduce((sum, p) => sum + p.amount_paid, 0);
@@ -185,6 +190,9 @@ export default function Admin() {
             </TabsTrigger>
             <TabsTrigger value="users" className="text-slate-300 data-[state=active]:text-white">
               Users ({users.length})
+            </TabsTrigger>
+            <TabsTrigger value="instructors" className="text-slate-300 data-[state=active]:text-white">
+              Instructors ({instructors.length})
             </TabsTrigger>
           </TabsList>
 
@@ -366,6 +374,10 @@ export default function Admin() {
                 </Table>
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="instructors">
+            <InstructorManager instructors={instructors} onRefresh={loadAdminData} />
           </TabsContent>
         </Tabs>
 

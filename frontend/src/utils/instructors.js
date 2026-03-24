@@ -45,6 +45,20 @@ export function getInstructorRoleHeadline(categoryKey, bio) {
   return pos;
 }
 
+export function buildStructuredCredibilityLine({
+  position = "",
+  school = "",
+  pro_team = "",
+  honors = [],
+}) {
+  const parts = [position, school, pro_team]
+    .map((v) => String(v || "").trim())
+    .filter(Boolean);
+  if (parts.length) return parts.join(" • ");
+  if (Array.isArray(honors) && honors.length) return String(honors[0]).trim();
+  return "";
+}
+
 /**
  * Second line: trimmed bio, skipped if it duplicates the headline.
  * @param {string} [bio]
@@ -58,6 +72,57 @@ export function getInstructorCredibilityLine(bio, roleHeadline) {
   return s;
 }
 
+export function resolveInstructorForVideo(video) {
+  const source = video?.instructor || null;
+  const category = video?.category;
+  const roleKey = source?.position
+    ? Object.entries(POSITION_LABEL).find(
+        ([, label]) => label.toLowerCase() === String(source.position).toLowerCase()
+      )?.[0] || category
+    : category;
+
+  const fallbackRole = getInstructorRoleHeadline(category, video?.instructor_bio);
+  const roleHeadline =
+    source?.headline ||
+    buildStructuredCredibilityLine({
+      position: source?.position,
+      school: source?.school,
+      pro_team: source?.pro_team,
+      honors: source?.honors,
+    }) ||
+    fallbackRole;
+
+  const credentialLine =
+    source?.credential_line ||
+    getInstructorCredibilityLine(source?.bio || video?.instructor_bio, roleHeadline);
+
+  const socialsFromEntity = [
+    source?.instagram_url
+      ? { platform: "instagram", url: source.instagram_url }
+      : null,
+    source?.twitter_url ? { platform: "twitter", url: source.twitter_url } : null,
+    source?.youtube_url ? { platform: "youtube", url: source.youtube_url } : null,
+    source?.tiktok_url ? { platform: "tiktok", url: source.tiktok_url } : null,
+  ].filter(Boolean);
+
+  return {
+    id: source?.id || source?._id || video?.instructor_id || null,
+    name: source?.name || video?.instructor_name || "Instructor",
+    photo: source?.photo_url || video?.instructor_photo || ATHLETE_FALLBACK_PHOTO,
+    roleKey: roleKey || "offense",
+    roleHeadline,
+    credentialLine,
+    bio: source?.bio || video?.instructor_bio || "",
+    socials:
+      socialsFromEntity.length > 0
+        ? socialsFromEntity
+        : Array.isArray(video?.instructor_socials)
+        ? video.instructor_socials
+        : [],
+    slug: source?.slug || "",
+  };
+}
+
 /**
  * Dedupe videos by instructor_name and pick primary category + featured video for links.
  * @param {Array<object>} videos
@@ -68,12 +133,16 @@ export function aggregateInstructorsFromVideos(videos) {
   const byName = new Map();
 
   for (const v of videos) {
-    const name = (v.instructor_name || "").trim();
+    const resolved = resolveInstructorForVideo(v);
+    const name = (resolved.name || "").trim();
     if (!name) continue;
     if (!byName.has(name)) {
       byName.set(name, {
         name,
-        photo: v.instructor_photo || "",
+        photo: resolved.photo || "",
+        roleHeadline: resolved.roleHeadline,
+        credentialLine: resolved.credentialLine,
+        roleKey: resolved.roleKey,
         videos: [],
       });
     }
@@ -103,18 +172,18 @@ export function aggregateInstructorsFromVideos(videos) {
         return new Date(b.created_date || 0) - new Date(a.created_date || 0);
       });
       const primary = sorted[0];
-      const bio = primary?.instructor_bio || "";
-      const roleHeadline = getInstructorRoleHeadline(topCat, bio);
-      const credentialLine = getInstructorCredibilityLine(bio, roleHeadline);
+      const resolvedPrimary = resolveInstructorForVideo(primary || {});
+      const roleHeadline = entry.roleHeadline || resolvedPrimary.roleHeadline;
+      const credentialLine = entry.credentialLine || resolvedPrimary.credentialLine;
 
       return {
         name: entry.name,
         photo:
           entry.photo ||
-          primary?.instructor_photo ||
+          resolvedPrimary.photo ||
           "",
         /** @type {keyof typeof POSITION_LABEL} */
-        roleKey: topCat,
+        roleKey: entry.roleKey || topCat,
         label: POSITION_LABEL[topCat] || "Pro Instructor",
         roleHeadline,
         credentialLine,

@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import ReactMarkdown from "react-markdown";
 import { createPageUrl, getDescriptionPreviewText } from "@/utils";
+import { resolveInstructorForVideo } from "@/utils/instructors";
 import { Video } from "@/api/entities";
 import { Review } from "@/api/customClient";
 import { CartItem } from "@/api/entities";
@@ -442,6 +443,9 @@ export default function VideoDetail() {
   };
 
   const renderInstructorCard = () => (
+    (() => {
+      const instructor = resolveInstructorForVideo(video);
+      return (
     <Card className="bg-slate-800 border-slate-700">
       <CardHeader>
         <CardTitle className="text-white text-xl">Your Instructor</CardTitle>
@@ -450,29 +454,29 @@ export default function VideoDetail() {
         <div className="flex items-center gap-4 mb-4">
           <img
             src={
-              video.instructor_photo ||
+              instructor.photo ||
               `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face`
             }
-            alt={video.instructor_name}
+            alt={instructor.name}
             className="w-16 h-16 rounded-full object-cover"
           />
           <div>
-            <h3 className="text-2xl font-bold text-white">{video.instructor_name}</h3>
+            <h3 className="text-2xl font-bold text-white">{instructor.name}</h3>
             <div className="flex items-center gap-1 text-slate-400">
               <Award className="w-4 h-4" />
-              <span className="text-slate-300">Professional Athlete</span>
+              <span className="text-slate-300">{instructor.roleHeadline}</span>
             </div>
           </div>
         </div>
-        {video.instructor_bio && (
-          <p className="text-slate-300 text-sm mb-4">{video.instructor_bio}</p>
+        {instructor.bio && (
+          <p className="text-slate-300 text-sm mb-4">{instructor.bio}</p>
         )}
-        {Array.isArray(video.instructor_socials) &&
-          video.instructor_socials.length > 0 && (
+        {Array.isArray(instructor.socials) &&
+          instructor.socials.length > 0 && (
             <div className="space-y-2">
               <h4 className="text-sm font-semibold text-white">Connect</h4>
               <div className="flex flex-wrap gap-2">
-                {video.instructor_socials.map((social) => {
+                {instructor.socials.map((social) => {
                   const platform = (social.platform || "").toLowerCase();
                   const Icon =
                     platform === "instagram"
@@ -503,6 +507,8 @@ export default function VideoDetail() {
           )}
       </CardContent>
     </Card>
+      );
+    })()
   );
 
   const renderReviewsSection = ({ hideTitle = false } = {}) => (

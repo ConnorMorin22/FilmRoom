@@ -40,6 +40,45 @@ const mapVideoMediaUrls = (video) => ({
   instructor_photo: maybeSignImageUrl(video.instructor_photo),
 });
 
+const mergeInstructorFields = (video) => {
+  const instructor = video.instructor_id && typeof video.instructor_id === "object"
+    ? video.instructor_id
+    : null;
+  if (!instructor) return video;
+  const socials = [];
+  if (instructor.instagram_url) socials.push({ platform: "instagram", url: instructor.instagram_url });
+  if (instructor.twitter_url) socials.push({ platform: "twitter", url: instructor.twitter_url });
+  if (instructor.youtube_url) socials.push({ platform: "youtube", url: instructor.youtube_url });
+  if (instructor.tiktok_url) socials.push({ platform: "tiktok", url: instructor.tiktok_url });
+
+  return {
+    ...video,
+    instructor_name: instructor.name || video.instructor_name,
+    instructor_bio: instructor.bio || video.instructor_bio,
+    instructor_photo: instructor.photo_url || video.instructor_photo,
+    instructor_socials: socials.length ? socials : video.instructor_socials,
+    instructor: {
+      id: instructor._id,
+      name: instructor.name || "",
+      slug: instructor.slug || "",
+      photo_url: instructor.photo_url || "",
+      headline: instructor.headline || "",
+      bio: instructor.bio || "",
+      position: instructor.position || "",
+      credential_line: instructor.credential_line || "",
+      school: instructor.school || "",
+      pro_team: instructor.pro_team || "",
+      honors: Array.isArray(instructor.honors) ? instructor.honors : [],
+      instagram_url: instructor.instagram_url || "",
+      twitter_url: instructor.twitter_url || "",
+      youtube_url: instructor.youtube_url || "",
+      tiktok_url: instructor.tiktok_url || "",
+      is_featured: Boolean(instructor.is_featured),
+      is_active: instructor.is_active !== false,
+    },
+  };
+};
+
 // Generate JWT Token
 const generateToken = (userId) => {
   return jwt.sign({ userId }, process.env.JWT_SECRET, {
@@ -150,9 +189,12 @@ exports.getMe = async (req, res) => {
   try {
     // req.user is set by auth middleware
     // Populate purchasedVideos to get full video objects instead of just IDs
-    const user = await User.findById(req.user._id).populate("purchasedVideos");
+    const user = await User.findById(req.user._id).populate({
+      path: "purchasedVideos",
+      populate: { path: "instructor_id" },
+    });
     const purchasedVideos = (user.purchasedVideos || []).map((video) =>
-      video ? mapVideoMediaUrls(video.toObject()) : video
+      video ? mapVideoMediaUrls(mergeInstructorFields(video.toObject())) : video
     );
 
     res.json({

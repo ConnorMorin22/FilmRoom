@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl, getDescriptionPreviewText } from "@/utils";
+import { resolveInstructorForVideo } from "@/utils/instructors";
 import { CartItem } from "@/api/entities";
 import { Purchase } from "@/api/entities";
 import { Video } from "@/api/entities";
@@ -159,7 +160,9 @@ export default function Cart() {
           <div className="grid lg:grid-cols-3 gap-8">
             {/* Cart Items */}
             <div className="lg:col-span-2 space-y-4">
-              {cartItems.map(({ cartItem, video }) => (
+              {cartItems.map(({ cartItem, video }) => {
+                const instructor = resolveInstructorForVideo(video);
+                return (
                 <Card
                   key={cartItem.id}
                   className="bg-slate-800 border-slate-700"
@@ -179,7 +182,7 @@ export default function Cart() {
                           {video.title}
                         </h3>
                         <p className="text-slate-400 text-sm mb-2">
-                          by {video.instructor_name}
+                          by {instructor.name}
                         </p>
                         <p className="text-slate-300 text-sm line-clamp-2">
                           {getDescriptionPreviewText(video.description)}
@@ -201,7 +204,8 @@ export default function Cart() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
 
             {/* Order Summary */}

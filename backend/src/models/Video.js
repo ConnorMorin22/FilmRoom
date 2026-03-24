@@ -10,6 +10,10 @@ const videoSchema = new mongoose.Schema({
     type: String,
     required: [true, "Please add a description"],
   },
+  instructor_id: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Instructor",
+  },
   instructor_name: {
     type: String,
     required: true,

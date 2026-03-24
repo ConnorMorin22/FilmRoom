@@ -1,10 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl, getDescriptionPreviewText } from "@/utils";
-import {
-  getInstructorRoleHeadline,
-  getInstructorCredibilityLine,
-} from "@/utils/instructors";
+import { resolveInstructorForVideo } from "@/utils/instructors";
 import { Play, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,14 +14,7 @@ export default function VideoCard({
 }) {
   const navigate = useNavigate();
   const descriptionPreview = getDescriptionPreviewText(video.description);
-  const roleHeadline = getInstructorRoleHeadline(
-    video.category,
-    video.instructor_bio
-  );
-  const instructorCred = getInstructorCredibilityLine(
-    video.instructor_bio,
-    roleHeadline
-  );
+  const instructor = resolveInstructorForVideo(video);
   const categoryColors = {
     offense: "bg-red-500/20 text-red-200",
     defense: "bg-blue-500/20 text-blue-200",
@@ -96,20 +86,20 @@ export default function VideoCard({
 
         <div className="flex items-center gap-3 mb-4">
           <img
-            src={video.instructor_photo || `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face`}
-            alt={video.instructor_name}
+            src={instructor.photo}
+            alt={instructor.name}
             className="w-10 h-10 rounded-full object-cover"
           />
           <div className="min-w-0">
             <div className="text-white font-medium truncate">
-              {video.instructor_name}
+              {instructor.name}
             </div>
             <div className="text-sm text-cyan-300/90 font-medium truncate">
-              {roleHeadline}
+              {instructor.roleHeadline}
             </div>
-            {instructorCred ? (
+            {instructor.credentialLine ? (
               <div className="text-slate-500 text-xs mt-0.5 line-clamp-2 leading-snug">
-                {instructorCred}
+                {instructor.credentialLine}
               </div>
             ) : null}
           </div>

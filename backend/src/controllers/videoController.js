@@ -78,13 +78,54 @@ const mapVideoMediaUrls = (video) => ({
   preview_url: maybeSignImageUrl(video.preview_url),
 });
 
+const mergeInstructorFields = (video) => {
+  const instructor = video.instructor_id && typeof video.instructor_id === "object"
+    ? video.instructor_id
+    : null;
+
+  if (!instructor) return video;
+
+  const socials = [];
+  if (instructor.instagram_url) socials.push({ platform: "instagram", url: instructor.instagram_url });
+  if (instructor.twitter_url) socials.push({ platform: "twitter", url: instructor.twitter_url });
+  if (instructor.youtube_url) socials.push({ platform: "youtube", url: instructor.youtube_url });
+  if (instructor.tiktok_url) socials.push({ platform: "tiktok", url: instructor.tiktok_url });
+
+  return {
+    ...video,
+    instructor_name: instructor.name || video.instructor_name,
+    instructor_bio: instructor.bio || video.instructor_bio,
+    instructor_photo: instructor.photo_url || video.instructor_photo,
+    instructor_socials: socials.length ? socials : video.instructor_socials,
+    instructor: {
+      id: instructor._id,
+      name: instructor.name || "",
+      slug: instructor.slug || "",
+      photo_url: instructor.photo_url || "",
+      headline: instructor.headline || "",
+      bio: instructor.bio || "",
+      position: instructor.position || "",
+      credential_line: instructor.credential_line || "",
+      school: instructor.school || "",
+      pro_team: instructor.pro_team || "",
+      honors: Array.isArray(instructor.honors) ? instructor.honors : [],
+      instagram_url: instructor.instagram_url || "",
+      twitter_url: instructor.twitter_url || "",
+      youtube_url: instructor.youtube_url || "",
+      tiktok_url: instructor.tiktok_url || "",
+      is_featured: Boolean(instructor.is_featured),
+      is_active: instructor.is_active !== false,
+    },
+  };
+};
+
 // @desc    Get all videos
 // @route   GET /api/videos
 exports.getAllVideos = async (req, res) => {
   try {
-    const videos = await Video.find();
+    const videos = await Video.find().populate("instructor_id");
     const payload = videos.map((video) =>
-      mapVideoMediaUrls(video.toObject())
+      mapVideoMediaUrls(mergeInstructorFields(video.toObject()))
     );
     res.json({ success: true, videos: payload });
   } catch (error) {
@@ -97,13 +138,13 @@ exports.getAllVideos = async (req, res) => {
 // @route   GET /api/videos/:id
 exports.getVideo = async (req, res) => {
   try {
-    const video = await Video.findById(req.params.id);
+    const video = await Video.findById(req.params.id).populate("instructor_id");
 
     if (!video) {
       return res.status(404).json({ error: "Video not found" });
     }
 
-    res.json({ success: true, video: mapVideoMediaUrls(video.toObject()) });
+    res.json({ success: true, video: mapVideoMediaUrls(mergeInstructorFields(video.toObject())) });
   } catch (error) {
     console.error("Get video error:", error);
     res.status(500).json({ error: "Error fetching video" });
@@ -114,12 +155,13 @@ exports.getVideo = async (req, res) => {
 // @route   GET /api/videos/my-library
 exports.getMyLibrary = async (req, res) => {
   try {
-    const purchases = await Purchase.find({ user: req.user._id }).populate(
-      "video"
-    );
+    const purchases = await Purchase.find({ user: req.user._id }).populate({
+      path: "video",
+      populate: { path: "instructor_id" },
+    });
 
     const videos = purchases.map((p) =>
-      p.video ? mapVideoMediaUrls(p.video.toObject()) : p.video
+      p.video ? mapVideoMediaUrls(mergeInstructorFields(p.video.toObject())) : p.video
     );
 
     res.json({ success: true, videos });

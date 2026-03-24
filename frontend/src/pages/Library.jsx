@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl, getDescriptionPreviewText } from "@/utils";
+import { resolveInstructorForVideo } from "@/utils/instructors";
 import { Purchase } from "@/api/entities";
 import { Video } from "@/api/entities";
 import { User } from "@/api/entities";
@@ -148,7 +149,9 @@ export default function Library() {
 
             {/* Videos Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {filteredVideos.map((video) => (
+              {filteredVideos.map((video) => {
+                const instructor = resolveInstructorForVideo(video);
+                return (
                 <Card
                   key={video._id}
                   className="bg-slate-800 border-slate-700 hover:bg-slate-750 transition-all duration-300 group overflow-hidden cursor-pointer"
@@ -190,15 +193,15 @@ export default function Library() {
                       <div className="flex items-center gap-3">
                         <img
                           src={
-                            video.instructor_photo ||
+                            instructor.photo ||
                             `https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100&h=100&fit=crop&crop=face`
                           }
-                          alt={video.instructor_name}
+                          alt={instructor.name}
                           className="w-8 h-8 rounded-full object-cover"
                         />
                         <div>
                           <div className="text-white text-sm font-medium">
-                            {video.instructor_name}
+                            {instructor.name}
                           </div>
                         </div>
                       </div>
@@ -216,7 +219,8 @@ export default function Library() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           </>
         )}
