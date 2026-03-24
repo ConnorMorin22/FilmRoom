@@ -6,6 +6,8 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "seed:instructors": "node src/seeds/syncInstructorsFromVideos.js",
+    "backfill:core-instructors": "node src/seeds/backfillCoreInstructors.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
