@@ -1,7 +1,7 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl, getDescriptionPreviewText } from "@/utils";
-import { Play, Clock, Star, Award } from "lucide-react";
+import { Play, Clock, Award } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -40,25 +40,27 @@ export default function VideoCard({
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent" />
 
-        <div className="absolute top-4 left-4">
+        <div className="absolute top-3 left-3">
           <Badge className={categoryColors[video.category]}>
             {video.category}
           </Badge>
         </div>
 
-        <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+        <div className="absolute top-3 right-3 flex flex-col items-end gap-1.5">
           {video.is_featured && (
-            <Badge className="bg-amber-500/90 text-amber-950 border-0 font-semibold text-[10px] uppercase tracking-wide">
+            <Badge className="bg-amber-500/95 text-amber-950 border-0 font-semibold text-[10px] uppercase tracking-wider shadow-sm">
               Featured
             </Badge>
           )}
           {promoBadge === "popular" && !video.is_featured && (
-            <Badge className="bg-violet-500/90 text-white border-0 font-semibold text-[10px] uppercase tracking-wide">
+            <Badge className="bg-violet-600/95 text-white border-0 font-semibold text-[10px] uppercase tracking-wider shadow-sm">
               Popular
             </Badge>
           )}
           {video.skill_level !== "all" && (
-            <Badge className={`${skillLevelColors[video.skill_level]} text-white`}>
+            <Badge
+              className={`${skillLevelColors[video.skill_level]} text-white text-[10px] uppercase tracking-wide border-0 shadow-sm`}
+            >
               {video.skill_level}
             </Badge>
           )}
@@ -107,7 +109,7 @@ export default function VideoCard({
                 navigate(createPageUrl(`VideoDetail?id=${video.id}`));
               }}
             >
-              View Details
+              View Courses
             </Button>
           )}
         </div>

@@ -1,8 +1,7 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Video } from "@/api/entities";
-import { User } from "@/api/entities";
 import { Review } from "@/api/customClient";
 import {
   Play,
@@ -12,8 +11,9 @@ import {
   Zap,
   ArrowRight,
   Sparkles,
-  ListChecks,
-  Infinity,
+  Users,
+  Infinity as InfinityIcon,
+  ListOrdered,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -30,7 +30,6 @@ export default function Home() {
   const [featuredVideos, setFeaturedVideos] = useState([]);
   const [athletes, setAthletes] = useState([]);
   const [categories, setCategories] = useState([]);
-  const [user, setUser] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [topReviews, setTopReviews] = useState([]);
 
@@ -40,13 +39,6 @@ export default function Home() {
 
   const loadData = async () => {
     try {
-      try {
-        const currentUser = await User.me();
-        setUser(currentUser);
-      } catch {
-        // guest
-      }
-
       const allVideos = await Video.filter({ is_active: true });
 
       const featured = allVideos
@@ -120,6 +112,14 @@ export default function Home() {
     }
   };
 
+  const fewReviews = topReviews.length > 0 && topReviews.length <= 4;
+
+  const reviewMarqueeDurationSec = useMemo(() => {
+    const n = topReviews.length;
+    if (n <= 1) return 30;
+    return Math.min(55, Math.max(32, n * 9));
+  }, [topReviews.length]);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
@@ -133,46 +133,43 @@ export default function Home() {
   return (
     <div className="bg-slate-900 text-white">
       {/* Hero */}
-      <section className="relative bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 py-20 md:py-28 px-4 overflow-hidden">
+      <section className="relative bg-gradient-to-br from-slate-950 via-slate-900 to-blue-950 py-20 md:py-24 px-4 overflow-hidden">
         <div
           className="absolute inset-0 bg-cover bg-center opacity-[0.12]"
           style={{ backgroundImage: `url(${heroImage})` }}
         />
         <div className="absolute inset-0 bg-gradient-to-t from-slate-900/90 via-transparent to-slate-900/40" />
         <div className="relative max-w-7xl mx-auto">
-          <div className="text-center max-w-4xl mx-auto">
-            <div className="inline-flex items-center gap-2 bg-cyan-500/10 text-cyan-300/95 px-4 py-2 rounded-full text-xs font-semibold uppercase tracking-widest mb-8 border border-cyan-500/20 backdrop-blur-sm">
-              <Sparkles className="w-3.5 h-3.5" />
-              Elite-level instruction
+          <div className="text-center max-w-3xl mx-auto">
+            <div className="inline-flex items-center gap-2 bg-white/5 text-slate-300 px-3 py-1.5 rounded-full text-[11px] font-medium tracking-wide mb-7 border border-white/10">
+              <Sparkles className="w-3.5 h-3.5 text-cyan-400/90" />
+              Elite instruction · athlete-led
             </div>
 
-            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-black tracking-tight bg-gradient-to-r from-white via-slate-100 to-cyan-300 bg-clip-text text-transparent mb-6 leading-[1.08]">
-              Train with pro lacrosse players
+            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-white mb-5 leading-[1.1]">
+              Train With Pro Lacrosse Players
             </h1>
 
-            <p className="text-lg md:text-xl text-slate-400 mb-10 leading-relaxed max-w-2xl mx-auto">
+            <p className="text-base md:text-lg text-slate-400 mb-10 leading-relaxed">
               Learn the exact techniques used by NCAA All-Americans and PLL
-              pros—broken down so you can rep them on the field.
+              pros.
             </p>
 
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link to={createPageUrl("Videos")}>
-                <Button className="bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white px-8 py-6 text-base font-semibold rounded-xl shadow-lg shadow-cyan-500/10">
+            <div className="flex flex-col sm:flex-row gap-3 justify-center items-stretch sm:items-center max-w-md sm:max-w-none mx-auto">
+              <Link to={createPageUrl("Videos")} className="sm:w-auto w-full">
+                <Button className="w-full sm:w-auto bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white px-8 py-6 text-base font-semibold rounded-xl shadow-lg shadow-cyan-500/10">
                   <Play className="w-5 h-5 mr-2" />
-                  Browse courses
+                  Browse Courses
                 </Button>
               </Link>
-              {!user && (
+              <Link to={createPageUrl("Instructors")} className="sm:w-auto w-full">
                 <Button
                   variant="outline"
-                  className="border-slate-600 text-slate-200 hover:bg-slate-800 px-8 py-6 text-base rounded-xl bg-slate-900/40 backdrop-blur"
-                  onClick={async () =>
-                    await User.loginWithRedirect(window.location.origin)
-                  }
+                  className="w-full sm:w-auto border-slate-600 text-slate-100 hover:bg-slate-800/80 hover:text-white px-8 py-6 text-base rounded-xl bg-slate-950/30 backdrop-blur"
                 >
-                  Sign up free
+                  Meet the Instructors
                 </Button>
-              )}
+              </Link>
             </div>
           </div>
         </div>
@@ -180,7 +177,7 @@ export default function Home() {
 
       {/* Featured athletes */}
       {athletes.length > 0 && (
-        <section className="py-14 md:py-20 px-4 border-b border-slate-800/80">
+        <section className="py-12 md:py-16 px-4 border-b border-slate-800/80">
           <div className="max-w-7xl mx-auto mb-8 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-widest text-cyan-400/90 mb-2">
@@ -189,9 +186,8 @@ export default function Home() {
               <h2 className="text-3xl md:text-4xl font-bold tracking-tight">
                 Featured athletes
               </h2>
-              <p className="text-slate-400 mt-2 max-w-xl">
-                Real reps from players who’ve competed at the top—tap in to see
-                their full training.
+              <p className="text-slate-400 mt-2 max-w-xl text-sm md:text-base">
+                See who teaches each program—then open their courses.
               </p>
             </div>
             <Link
@@ -204,40 +200,34 @@ export default function Home() {
           </div>
 
           <div className="max-w-7xl mx-auto">
-            <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory scrollbar-thin [-webkit-overflow-scrolling:touch] athlete-scroll">
+            <div className="flex gap-5 overflow-x-auto pb-3 pt-1 snap-x snap-mandatory [-webkit-overflow-scrolling:touch] athlete-scroll px-0.5">
               {athletes.map((person) => (
                 <Card
                   key={person.name}
-                  className="flex-shrink-0 w-[260px] sm:w-[280px] snap-start bg-slate-800/60 border-slate-700/80 hover:border-slate-600 transition-colors shadow-lg shadow-black/20"
+                  className="flex-shrink-0 w-[252px] sm:w-[268px] snap-start bg-slate-800/50 border-slate-700/70 hover:border-cyan-500/25 hover:bg-slate-800/80 hover:shadow-xl hover:shadow-black/40 transition-all duration-300 group/card"
                 >
-                  <CardContent className="p-5 flex flex-col items-stretch">
-                    <div className="flex items-center gap-4 mb-4">
+                  <CardContent className="p-6 flex flex-col items-center text-center">
+                    <div className="relative mb-4">
                       <img
                         src={person.photo || ATHLETE_FALLBACK_PHOTO}
                         alt={person.name}
-                        className="w-16 h-16 rounded-full object-cover ring-2 ring-slate-600"
+                        className="w-[4.5rem] h-[4.5rem] rounded-full object-cover ring-2 ring-slate-600 group-hover/card:ring-cyan-500/35 transition-all duration-300"
                       />
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-bold text-white truncate">
-                          {person.name}
-                        </h3>
-                        <p className="text-sm text-cyan-300/90 font-medium">
-                          {person.label}
-                        </p>
-                      </div>
                     </div>
-                    {person.credentialLine ? (
-                      <p className="text-xs text-slate-500 line-clamp-2 mb-4 min-h-[2.5rem]">
-                        {person.credentialLine}
-                      </p>
-                    ) : (
-                      <div className="mb-4 min-h-[2.5rem]" />
-                    )}
+                    <h3 className="font-bold text-white text-lg leading-tight mb-0.5">
+                      {person.name}
+                    </h3>
+                    <p className="text-sm text-cyan-300/90 font-medium mb-3">
+                      {person.label}
+                    </p>
+                    <p className="text-xs text-slate-500 leading-snug line-clamp-2 min-h-[2.25rem] mb-5 w-full">
+                      {person.credentialLine || "\u00a0"}
+                    </p>
                     {person.primaryVideoId ? (
                       <Button
                         asChild
                         variant="secondary"
-                        className="w-full bg-slate-700/80 hover:bg-slate-600 text-white border-0"
+                        className="w-full bg-slate-700/70 hover:bg-slate-600 text-white border-0 font-semibold"
                       >
                         <Link
                           to={createPageUrl(
@@ -245,13 +235,13 @@ export default function Home() {
                           )}
                           className="inline-flex items-center justify-center gap-2"
                         >
-                          View training
-                          <ArrowRight className="w-4 h-4" />
+                          View Courses
+                          <ArrowRight className="w-4 h-4 opacity-80" />
                         </Link>
                       </Button>
                     ) : (
-                      <Button asChild variant="secondary" className="w-full">
-                        <Link to={createPageUrl("Videos")}>Browse videos</Link>
+                      <Button asChild variant="secondary" className="w-full font-semibold">
+                        <Link to={createPageUrl("Videos")}>Browse Courses</Link>
                       </Button>
                     )}
                   </CardContent>
@@ -278,34 +268,34 @@ export default function Home() {
         </section>
       )}
 
-      {/* Featured training */}
+      {/* Featured courses */}
       {featuredVideos.length > 0 && (
-        <section className="py-20 px-4">
+        <section className="py-16 md:py-20 px-4">
           <div className="max-w-7xl mx-auto">
-            <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-12">
+            <div className="flex flex-col md:flex-row md:justify-between md:items-end gap-6 mb-8">
               <div className="max-w-2xl">
                 <p className="text-xs font-semibold uppercase tracking-widest text-cyan-400/90 mb-2">
-                  Programs
+                  Courses
                 </p>
-                <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
-                  Featured training
+                <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-4">
+                  Featured Courses
                 </h2>
-                <p className="text-slate-400 text-lg leading-relaxed">
-                  Deep-dive courses you can own for life—structured like a real
-                  practice plan.
-                </p>
               </div>
-              <Link to={createPageUrl("Videos")}>
+              <Link to={createPageUrl("Videos")} className="shrink-0">
                 <Button
                   variant="outline"
-                  className="border-slate-600 text-slate-200 hover:bg-slate-800 shrink-0"
+                  className="border-slate-600 text-slate-200 hover:bg-slate-800"
                 >
                   View all courses
                 </Button>
               </Link>
             </div>
+            <p className="text-slate-400 text-sm md:text-base leading-relaxed max-w-3xl mb-10">
+              Learn the systems elite players use to win possessions, create
+              offense, and control the game.
+            </p>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-10">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7 lg:gap-8">
               {featuredVideos.map((video) => {
                 const showPopular =
                   !video.is_featured && popularSlots > 0;
@@ -324,21 +314,21 @@ export default function Home() {
       )}
 
       {/* Train by position */}
-      <section className="py-20 px-4 bg-slate-800/40 border-y border-slate-800/80">
+      <section className="py-16 md:py-20 px-4 bg-slate-800/40 border-y border-slate-800/80">
         <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-14 max-w-2xl mx-auto">
+          <div className="text-center mb-12 max-w-2xl mx-auto">
             <p className="text-xs font-semibold uppercase tracking-widest text-cyan-400/90 mb-2">
               Your game
             </p>
             <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
               Train by position
             </h2>
-            <p className="text-slate-400 text-lg">
-              Jump straight into the film that matches how you play.
+            <p className="text-slate-400 text-sm md:text-base">
+              Jump straight into film that matches how you play.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 md:gap-6">
             {categories.map((category) => (
               <Link
                 key={category.slug}
@@ -346,16 +336,16 @@ export default function Home() {
                 className="block group"
               >
                 <Card className="bg-slate-800/90 border-slate-700/80 hover:border-slate-500 transition-all duration-300 h-full shadow-md shadow-black/15">
-                  <CardContent className="p-8 text-center">
+                  <CardContent className="p-7 text-center">
                     <div
-                      className={`w-16 h-16 mx-auto mb-6 bg-gradient-to-br ${category.color} rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform shadow-lg`}
+                      className={`w-14 h-14 mx-auto mb-5 bg-gradient-to-br ${category.color} rounded-2xl flex items-center justify-center group-hover:scale-105 transition-transform shadow-lg`}
                     >
-                      <category.icon className="w-8 h-8 text-white" />
+                      <category.icon className="w-7 h-7 text-white" />
                     </div>
-                    <h3 className="text-xl font-bold text-white mb-2">
+                    <h3 className="text-lg font-bold text-white mb-2">
                       {category.name}
                     </h3>
-                    <p className="text-slate-400 text-sm mb-5 leading-relaxed">
+                    <p className="text-slate-400 text-sm mb-4 leading-relaxed">
                       {category.description}
                     </p>
                     <Badge
@@ -373,53 +363,47 @@ export default function Home() {
         </div>
       </section>
 
-      {/* How it works */}
-      <section className="py-20 px-4">
+      {/* Why FilmRoom */}
+      <section className="py-14 md:py-16 px-4 border-t border-slate-800/80 bg-slate-950/60">
         <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold tracking-tight mb-3">
-              How it works
-            </h2>
-            <p className="text-slate-400">
-              Three steps. No fluff—just better lacrosse.
+          <div className="text-center mb-10">
+            <p className="text-xs font-semibold uppercase tracking-widest text-cyan-400/90 mb-2">
+              Why FilmRoom
             </p>
+            <h2 className="text-2xl md:text-3xl font-bold tracking-tight text-white">
+              Built for players who train with intent
+            </h2>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 md:gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 md:gap-5">
             {[
               {
-                step: "1",
-                title: "Choose your position",
-                body: "Start where you impact the game most—O, D, the X, or the cage.",
-                icon: ListChecks,
-              },
-              {
-                step: "2",
                 title: "Learn from elite players",
-                body: "Follow progressions and cues from athletes who’ve played at a serious level.",
-                icon: Award,
+                body: "On-field cues and progressions from athletes who’ve competed at the highest level—not generic tips.",
+                icon: Users,
               },
               {
-                step: "3",
-                title: "Apply it in-game",
-                body: "Rep the same reads and mechanics so they show up when it counts.",
-                icon: Target,
+                title: "One-time purchase, lifetime access",
+                body: "Own each course for good. Rewatch before season, in the film room, or whenever you need a reset.",
+                icon: InfinityIcon,
               },
-            ].map((item) => (
+              {
+                title: "Structured courses, not random clips",
+                body: "Full programs organized like a practice plan so you know what to work on next.",
+                icon: ListOrdered,
+              },
+            ].map((tile) => (
               <div
-                key={item.step}
-                className="relative rounded-2xl border border-slate-700/80 bg-slate-800/40 p-8 text-center"
+                key={tile.title}
+                className="rounded-2xl border border-slate-700/70 bg-slate-900/50 p-6 text-center md:text-left"
               >
-                <div className="w-12 h-12 mx-auto mb-5 rounded-xl bg-cyan-500/15 text-cyan-300 flex items-center justify-center">
-                  <item.icon className="w-6 h-6" />
+                <div className="w-10 h-10 mx-auto md:mx-0 mb-4 rounded-lg bg-cyan-500/10 text-cyan-300 flex items-center justify-center">
+                  <tile.icon className="w-5 h-5" />
                 </div>
-                <div className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">
-                  Step {item.step}
-                </div>
-                <h3 className="text-lg font-bold text-white mb-2">
-                  {item.title}
+                <h3 className="font-semibold text-white text-base mb-2 leading-snug">
+                  {tile.title}
                 </h3>
-                <p className="text-slate-400 text-sm leading-relaxed">
-                  {item.body}
+                <p className="text-slate-500 text-sm leading-relaxed">
+                  {tile.body}
                 </p>
               </div>
             ))}
@@ -427,109 +411,100 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Trust (replaces fake metrics) */}
-      <section className="py-16 px-4 border-t border-slate-800/80 bg-slate-950/50">
-        <div className="max-w-5xl mx-auto grid grid-cols-1 md:grid-cols-3 gap-10 text-center">
-          <div>
-            <div className="w-11 h-11 mx-auto mb-4 rounded-full bg-blue-500/15 flex items-center justify-center">
-              <Award className="w-5 h-5 text-cyan-300" />
-            </div>
-            <h3 className="font-semibold text-white mb-2">
-              Elite-level instruction
-            </h3>
-            <p className="text-slate-500 text-sm leading-relaxed">
-              Curated teaching from players who’ve trained and competed at the
-              highest levels of the sport.
-            </p>
-          </div>
-          <div>
-            <div className="w-11 h-11 mx-auto mb-4 rounded-full bg-blue-500/15 flex items-center justify-center">
-              <Target className="w-5 h-5 text-cyan-300" />
-            </div>
-            <h3 className="font-semibold text-white mb-2">
-              Built for serious players
-            </h3>
-            <p className="text-slate-500 text-sm leading-relaxed">
-              No gimmicks—just clear breakdowns and reps you can use in practice
-              and games.
-            </p>
-          </div>
-          <div>
-            <div className="w-11 h-11 mx-auto mb-4 rounded-full bg-blue-500/15 flex items-center justify-center">
-              <Infinity className="w-5 h-5 text-cyan-300" />
-            </div>
-            <h3 className="font-semibold text-white mb-2">Lifetime access</h3>
-            <p className="text-slate-500 text-sm leading-relaxed">
-              Own the courses you buy. Rewatch anytime you want a refresher
-              before the season.
-            </p>
-          </div>
-        </div>
-      </section>
-
       {/* Reviews */}
       {topReviews.length > 0 && (
-        <section className="py-16 px-4 pb-24">
-          <div className="max-w-7xl mx-auto">
-            <div className="flex items-center justify-between mb-8">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-cyan-400/90 mb-2">
-                  Social proof
-                </p>
-                <h2 className="text-3xl font-bold text-white">
-                  What players say
-                </h2>
-              </div>
+        <section
+          className={`px-4 border-t border-slate-800/50 ${fewReviews ? "py-10 pb-14" : "py-11 pb-16"}`}
+        >
+          <div className={fewReviews ? "max-w-4xl mx-auto" : "max-w-7xl mx-auto"}>
+            <div className="mb-6 text-center sm:text-left">
+              <p className="text-xs font-semibold uppercase tracking-widest text-cyan-400/90 mb-1.5">
+                Reviews
+              </p>
+              <h2 className="text-2xl md:text-3xl font-bold text-white">
+                From players and coaches
+              </h2>
             </div>
-            <div className="overflow-hidden">
-              <div className="review-marquee">
-                {[...topReviews, ...topReviews].map((review, index) => (
+
+            {fewReviews ? (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {topReviews.map((review) => (
                   <div
-                    key={`${review.id || review.created_date}-${index}`}
-                    className="review-card"
+                    key={review.id || `${review.user_name}-${review.title}`}
+                    className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 text-left"
                   >
-                    <div className="text-slate-300 text-sm mb-2">
-                      {"★".repeat(review.rating).padEnd(5, "☆")}
+                    <div className="text-amber-400/90 text-xs mb-2 tracking-wide">
+                      {"★".repeat(review.rating)}
+                      <span className="text-slate-600">
+                        {"☆".repeat(5 - review.rating)}
+                      </span>
                     </div>
-                    <div className="text-white font-semibold mb-1">
+                    <div className="text-white font-semibold text-sm mb-1">
                       {review.title}
                     </div>
-                    <div className="text-slate-300 text-sm line-clamp-3 mb-3">
+                    <p className="text-slate-400 text-sm leading-relaxed line-clamp-3 mb-3">
                       {review.body}
-                    </div>
-                    <div className="text-slate-400 text-xs">
+                    </p>
+                    <div className="text-slate-500 text-xs">
                       {review.user_name}
                       {review.video_title ? ` · ${review.video_title}` : ""}
                     </div>
                   </div>
                 ))}
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="overflow-hidden rounded-xl border border-slate-800/60 bg-slate-950/20 py-3">
+                  <div
+                    className="review-marquee flex gap-4 w-max"
+                    style={{
+                      animation: `review-scroll ${reviewMarqueeDurationSec}s linear infinite`,
+                    }}
+                  >
+                    {[...topReviews, ...topReviews].map((review, index) => (
+                      <div
+                        key={`${review.id || review.created_date}-${index}`}
+                        className="review-card flex-none w-[260px] sm:w-[272px]"
+                      >
+                        <div className="text-amber-400/90 text-xs mb-2">
+                          {"★".repeat(review.rating)}
+                          <span className="text-slate-600">
+                            {"☆".repeat(5 - review.rating)}
+                          </span>
+                        </div>
+                        <div className="text-white font-semibold text-sm mb-1">
+                          {review.title}
+                        </div>
+                        <div className="text-slate-400 text-sm line-clamp-3 mb-2 leading-relaxed">
+                          {review.body}
+                        </div>
+                        <div className="text-slate-500 text-xs">
+                          {review.user_name}
+                          {review.video_title ? ` · ${review.video_title}` : ""}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <style>{`
+                  @keyframes review-scroll {
+                    0% { transform: translateX(0); }
+                    100% { transform: translateX(-50%); }
+                  }
+                  .review-marquee:hover {
+                    animation-play-state: paused;
+                  }
+                  .review-card {
+                    background: rgba(30, 41, 59, 0.55);
+                    border: 1px solid rgba(71, 85, 105, 0.45);
+                    border-radius: 12px;
+                    padding: 14px 16px;
+                    backdrop-filter: blur(6px);
+                  }
+                `}</style>
+              </>
+            )}
           </div>
-          <style>{`
-            .review-marquee {
-              display: flex;
-              gap: 24px;
-              width: max-content;
-              animation: review-scroll 45s linear infinite;
-            }
-            .review-marquee:hover {
-              animation-play-state: paused;
-            }
-            .review-card {
-              background: rgba(30, 41, 59, 0.7);
-              border: 1px solid rgba(71, 85, 105, 0.6);
-              border-radius: 16px;
-              padding: 20px;
-              width: 320px;
-              flex: 0 0 auto;
-              backdrop-filter: blur(8px);
-            }
-            @keyframes review-scroll {
-              0% { transform: translateX(0); }
-              100% { transform: translateX(-50%); }
-            }
-          `}</style>
         </section>
       )}
     </div>

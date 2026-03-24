@@ -9,7 +9,7 @@ export const POSITION_LABEL = {
 export const ATHLETE_FALLBACK_PHOTO =
   "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop&crop=face";
 
-function credentialSnippet(text, max = 52) {
+function credentialSnippet(text, max = 40) {
   if (!text || typeof text !== "string") return "";
   const t = text.trim().replace(/\s+/g, " ");
   if (!t) return "";
@@ -68,6 +68,8 @@ export function aggregateInstructorsFromVideos(videos) {
           entry.photo ||
           primary?.instructor_photo ||
           "",
+        /** @type {keyof typeof POSITION_LABEL} */
+        roleKey: topCat,
         label: POSITION_LABEL[topCat] || "Pro Instructor",
         credentialLine: credentialSnippet(primary?.instructor_bio || ""),
         primaryVideoId: primary?.id,
