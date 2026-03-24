@@ -10,6 +10,9 @@ const User = require("../models/User");
 exports.createCheckout = async (req, res) => {
   try {
     const { videoId } = req.body;
+    if (videoId == null || String(videoId).trim() === "") {
+      return res.status(400).json({ error: "videoId is required" });
+    }
     const userId = req.user._id;
 
     // Get video details
@@ -90,13 +93,19 @@ exports.createCheckout = async (req, res) => {
 };
 
 // @desc    Stripe webhook handler
-// @route   POST /api/purchases/webhook
+// @route   POST /api/webhooks/stripe
+// @note    Registered in app.js BEFORE express.json() with express.raw({ type: "application/json" })
 exports.stripeWebhook = async (req, res) => {
   // Check if Stripe is configured
   if (!stripe) {
     return res
       .status(503)
       .json({ error: "Payment processing not configured yet" });
+  }
+
+  if (!process.env.STRIPE_WEBHOOK_SECRET) {
+    console.error("Stripe webhook: STRIPE_WEBHOOK_SECRET is not set");
+    return res.status(500).json({ error: "Webhook secret not configured" });
   }
 
   const sig = req.headers["stripe-signature"];
@@ -117,27 +126,62 @@ exports.stripeWebhook = async (req, res) => {
   // Handle checkout.session.completed event
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
-    const { userId, videoId } = session.metadata;
+    const userId = session.metadata?.userId;
+    const videoId = session.metadata?.videoId;
 
-    try {
-      // Create purchase record
-      await Purchase.create({
-        user: userId,
-        video: videoId,
-        stripeSessionId: session.id,
-        stripePaymentIntentId: session.payment_intent,
-        amount: session.amount_total,
-        status: "completed",
-      });
+    if (!userId || !videoId) {
+      console.error(
+        "Stripe webhook: checkout.session.completed missing userId or videoId",
+        { sessionId: session.id, metadata: session.metadata }
+      );
+    } else {
+      try {
+        const paymentIntentId =
+          typeof session.payment_intent === "string"
+            ? session.payment_intent
+            : session.payment_intent?.id ?? null;
 
-      // Add video to user's purchased videos
-      await User.findByIdAndUpdate(userId, {
-        $addToSet: { purchasedVideos: videoId },
-      });
+        const existing = await Purchase.findOne({
+          stripeSessionId: session.id,
+        });
 
-      console.log("✅ Purchase completed:", { userId, videoId });
-    } catch (error) {
-      console.error("Error processing purchase:", error);
+        if (existing) {
+          await User.findByIdAndUpdate(userId, {
+            $addToSet: { purchasedVideos: videoId },
+          });
+        } else {
+          try {
+            await Purchase.create({
+              user: userId,
+              video: videoId,
+              stripeSessionId: session.id,
+              stripePaymentIntentId: paymentIntentId,
+              amount: session.amount_total,
+              status: "completed",
+            });
+          } catch (createErr) {
+            if (createErr.code === 11000) {
+              console.warn(
+                "Purchase idempotent skip (duplicate key):",
+                createErr.keyPattern || createErr.message
+              );
+            } else {
+              throw createErr;
+            }
+          }
+
+          await User.findByIdAndUpdate(userId, {
+            $addToSet: { purchasedVideos: videoId },
+          });
+        }
+
+        console.log("✅ Purchase completed:", { userId, videoId });
+      } catch (error) {
+        console.error("Error processing purchase:", error);
+        return res
+          .status(500)
+          .json({ error: "Failed to record purchase after payment" });
+      }
     }
   }
 
