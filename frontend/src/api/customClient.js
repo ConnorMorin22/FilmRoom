@@ -1,7 +1,9 @@
 import axios from "axios";
 
-const RAW_API_URL =
-  import.meta.env.VITE_API_URL || "http://localhost:5001/api";
+const DEFAULT_API_URL = import.meta.env.PROD
+  ? "https://filmroom-backend.vercel.app/api"
+  : "http://localhost:5001/api";
+const RAW_API_URL = import.meta.env.VITE_API_URL || DEFAULT_API_URL;
 export const API_URL = RAW_API_URL.endsWith("/api")
   ? RAW_API_URL
   : `${RAW_API_URL.replace(/\/+$/, "")}/api`;

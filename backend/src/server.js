@@ -32,6 +32,8 @@ app.use(
 
       const allowedOrigins = [
         normalizeOrigin(process.env.FRONTEND_URL),
+        "https://lacrossefilmroom.com",
+        "https://www.lacrossefilmroom.com",
         "http://localhost:5173",
         "http://localhost:5174",
         "http://localhost:5175",
