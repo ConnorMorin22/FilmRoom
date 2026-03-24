@@ -9,11 +9,53 @@ export const POSITION_LABEL = {
 export const ATHLETE_FALLBACK_PHOTO =
   "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop&crop=face";
 
-function credentialSnippet(text, max = 40) {
+function credentialSnippet(text, max = 50) {
   if (!text || typeof text !== "string") return "";
   const t = text.trim().replace(/\s+/g, " ");
   if (!t) return "";
   return t.length <= max ? t : `${t.slice(0, max).trim()}…`;
+}
+
+/**
+ * Headline under instructor name (specific when bio hints league/level).
+ * @param {string} categoryKey offense | defense | faceoffs | goalies
+ * @param {string} [bio]
+ */
+export function getInstructorRoleHeadline(categoryKey, bio) {
+  const pos = POSITION_LABEL[categoryKey] || "Instructor";
+  const b = (bio || "").trim();
+  const bl = b.toLowerCase();
+
+  if (/\bpll\b/.test(bl)) {
+    if (categoryKey === "goalies") return "PLL Goalie";
+    if (categoryKey === "offense") return "PLL Attack";
+    if (categoryKey === "defense") return "PLL Defense";
+    if (categoryKey === "faceoffs") return "PLL Faceoff Specialist";
+    return `PLL · ${pos}`;
+  }
+
+  if (/all-?american/.test(bl)) {
+    return `${pos} · All-American`;
+  }
+
+  if (/\bncaa\b|college|university|\bd-?1\b|division\s*i\b/.test(bl)) {
+    return `${pos} · NCAA film`;
+  }
+
+  return pos;
+}
+
+/**
+ * Second line: trimmed bio, skipped if it duplicates the headline.
+ * @param {string} [bio]
+ * @param {string} roleHeadline
+ */
+export function getInstructorCredibilityLine(bio, roleHeadline) {
+  const s = credentialSnippet(bio || "", 52);
+  if (!s) return "";
+  const head = (roleHeadline || "").trim().toLowerCase();
+  if (head && s.toLowerCase() === head) return "";
+  return s;
 }
 
 /**
@@ -61,6 +103,9 @@ export function aggregateInstructorsFromVideos(videos) {
         return new Date(b.created_date || 0) - new Date(a.created_date || 0);
       });
       const primary = sorted[0];
+      const bio = primary?.instructor_bio || "";
+      const roleHeadline = getInstructorRoleHeadline(topCat, bio);
+      const credentialLine = getInstructorCredibilityLine(bio, roleHeadline);
 
       return {
         name: entry.name,
@@ -71,7 +116,8 @@ export function aggregateInstructorsFromVideos(videos) {
         /** @type {keyof typeof POSITION_LABEL} */
         roleKey: topCat,
         label: POSITION_LABEL[topCat] || "Pro Instructor",
-        credentialLine: credentialSnippet(primary?.instructor_bio || ""),
+        roleHeadline,
+        credentialLine,
         primaryVideoId: primary?.id,
         courseCount: entry.videos.length,
       };

@@ -5,7 +5,6 @@ import { Video } from "@/api/entities";
 import {
   aggregateInstructorsFromVideos,
   ATHLETE_FALLBACK_PHOTO,
-  POSITION_LABEL,
 } from "@/utils/instructors";
 import { Search, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -137,7 +136,7 @@ export default function Instructors() {
                     {person.name}
                   </h2>
                   <p className="text-sm text-cyan-300/90 font-medium mb-2">
-                    {POSITION_LABEL[person.roleKey] || person.label}
+                    {person.roleHeadline}
                   </p>
                   {person.credentialLine ? (
                     <p className="text-xs text-slate-500 mb-4 line-clamp-2 max-w-sm leading-snug">

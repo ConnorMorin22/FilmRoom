@@ -1,7 +1,11 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { createPageUrl, getDescriptionPreviewText } from "@/utils";
-import { Play, Clock, Award } from "lucide-react";
+import {
+  getInstructorRoleHeadline,
+  getInstructorCredibilityLine,
+} from "@/utils/instructors";
+import { Play, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,6 +17,14 @@ export default function VideoCard({
 }) {
   const navigate = useNavigate();
   const descriptionPreview = getDescriptionPreviewText(video.description);
+  const roleHeadline = getInstructorRoleHeadline(
+    video.category,
+    video.instructor_bio
+  );
+  const instructorCred = getInstructorCredibilityLine(
+    video.instructor_bio,
+    roleHeadline
+  );
   const categoryColors = {
     offense: "bg-red-500/20 text-red-200",
     defense: "bg-blue-500/20 text-blue-200",
@@ -77,7 +89,7 @@ export default function VideoCard({
         <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors mb-2">
           {video.title}
         </h3>
-          <p className="text-slate-400 text-sm leading-relaxed line-clamp-2 mb-3">
+          <p className="text-slate-300/90 text-sm leading-relaxed line-clamp-2 mb-3">
             {descriptionPreview}
           </p>
         </div>
@@ -88,12 +100,18 @@ export default function VideoCard({
             alt={video.instructor_name}
             className="w-10 h-10 rounded-full object-cover"
           />
-          <div>
-            <div className="text-white font-medium">{video.instructor_name}</div>
-            <div className="text-slate-400 text-sm flex items-center gap-1">
-              <Award className="w-3 h-3" />
-              Pro Athlete
+          <div className="min-w-0">
+            <div className="text-white font-medium truncate">
+              {video.instructor_name}
             </div>
+            <div className="text-sm text-cyan-300/90 font-medium truncate">
+              {roleHeadline}
+            </div>
+            {instructorCred ? (
+              <div className="text-slate-500 text-xs mt-0.5 line-clamp-2 leading-snug">
+                {instructorCred}
+              </div>
+            ) : null}
           </div>
         </div>
 

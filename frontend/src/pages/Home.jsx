@@ -1,8 +1,7 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { createPageUrl } from "@/utils";
 import { Video } from "@/api/entities";
-import { Review } from "@/api/customClient";
 import {
   Play,
   Award,
@@ -31,8 +30,6 @@ export default function Home() {
   const [athletes, setAthletes] = useState([]);
   const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [topReviews, setTopReviews] = useState([]);
-
   useEffect(() => {
     loadData();
   }, []);
@@ -71,7 +68,8 @@ export default function Home() {
           icon: Target,
           color: "from-red-500 to-orange-500",
           count: categoryCounts.offense,
-          description: "Dodging, finishing, and IQ on that end",
+          description:
+            "Create separation, finish in tight windows, and read slides.",
         },
         {
           name: "Defense",
@@ -79,7 +77,8 @@ export default function Home() {
           icon: Shield,
           color: "from-blue-500 to-cyan-500",
           count: categoryCounts.defense,
-          description: "Footwork, slides, and matchup play",
+          description:
+            "Track hands, time doubles, and stay between your man and the goal.",
         },
         {
           name: "Faceoffs",
@@ -87,7 +86,8 @@ export default function Home() {
           icon: Zap,
           color: "from-purple-500 to-pink-500",
           count: categoryCounts.faceoffs,
-          description: "Clamp speed, counters, and wing play",
+          description:
+            "Win clamps, exit clean, and turn draws into real possessions.",
         },
         {
           name: "Goalies",
@@ -95,30 +95,17 @@ export default function Home() {
           icon: Award,
           color: "from-green-500 to-emerald-500",
           count: categoryCounts.goalies,
-          description: "Angles, clears, and save mechanics",
+          description:
+            "Hold angles, move on time, and spark transition with your clears.",
         },
       ]);
 
-      try {
-        const reviews = await Review.top(8);
-        setTopReviews(reviews);
-      } catch (error) {
-        console.error("Failed to load reviews:", error);
-      }
     } catch (error) {
       console.error("Failed to load home data:", error);
     } finally {
       setIsLoading(false);
     }
   };
-
-  const fewReviews = topReviews.length > 0 && topReviews.length <= 4;
-
-  const reviewMarqueeDurationSec = useMemo(() => {
-    const n = topReviews.length;
-    if (n <= 1) return 30;
-    return Math.min(55, Math.max(32, n * 9));
-  }, [topReviews.length]);
 
   if (isLoading) {
     return (
@@ -146,8 +133,9 @@ export default function Home() {
               Elite instruction · athlete-led
             </div>
 
-            <h1 className="text-4xl sm:text-5xl md:text-6xl font-black tracking-tight text-white mb-5 leading-[1.1]">
-              Train With Pro Lacrosse Players
+            <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[2.75rem] font-black tracking-tight text-white mb-5 leading-[1.12]">
+              <span className="block">Train Like the Pros.</span>
+              <span className="block text-slate-100">Learn From the Pros.</span>
             </h1>
 
             <p className="text-base md:text-lg text-slate-400 mb-10 leading-relaxed">
@@ -218,9 +206,9 @@ export default function Home() {
                       {person.name}
                     </h3>
                     <p className="text-sm text-cyan-300/90 font-medium mb-3">
-                      {person.label}
+                      {person.roleHeadline}
                     </p>
-                    <p className="text-xs text-slate-500 leading-snug line-clamp-2 min-h-[2.25rem] mb-5 w-full">
+                    <p className="text-xs text-slate-400 leading-snug line-clamp-2 min-h-[2.25rem] mb-5 w-full">
                       {person.credentialLine || "\u00a0"}
                     </p>
                     {person.primaryVideoId ? (
@@ -291,8 +279,8 @@ export default function Home() {
               </Link>
             </div>
             <p className="text-slate-400 text-sm md:text-base leading-relaxed max-w-3xl mb-10">
-              Learn the systems elite players use to win possessions, create
-              offense, and control the game.
+              Walk away with possession habits, clearing patterns, and finishing
+              mechanics—the on-field details elite players repeat all season.
             </p>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-7 lg:gap-8">
@@ -350,7 +338,7 @@ export default function Home() {
                     </p>
                     <Badge
                       variant="secondary"
-                      className="bg-slate-700/80 text-slate-300 border-0"
+                      className="bg-slate-800 text-slate-300 border border-slate-600/70 font-medium"
                     >
                       {category.count}{" "}
                       {category.count === 1 ? "course" : "courses"}
@@ -364,7 +352,7 @@ export default function Home() {
       </section>
 
       {/* Why FilmRoom */}
-      <section className="py-14 md:py-16 px-4 border-t border-slate-800/80 bg-slate-950/60">
+      <section className="py-14 md:py-16 px-4 pb-16 md:pb-20 border-t border-slate-800/80 bg-slate-950/60">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-10">
             <p className="text-xs font-semibold uppercase tracking-widest text-cyan-400/90 mb-2">
@@ -402,7 +390,7 @@ export default function Home() {
                 <h3 className="font-semibold text-white text-base mb-2 leading-snug">
                   {tile.title}
                 </h3>
-                <p className="text-slate-500 text-sm leading-relaxed">
+                <p className="text-slate-400 text-sm leading-relaxed">
                   {tile.body}
                 </p>
               </div>
@@ -411,102 +399,6 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Reviews */}
-      {topReviews.length > 0 && (
-        <section
-          className={`px-4 border-t border-slate-800/50 ${fewReviews ? "py-10 pb-14" : "py-11 pb-16"}`}
-        >
-          <div className={fewReviews ? "max-w-4xl mx-auto" : "max-w-7xl mx-auto"}>
-            <div className="mb-6 text-center sm:text-left">
-              <p className="text-xs font-semibold uppercase tracking-widest text-cyan-400/90 mb-1.5">
-                Reviews
-              </p>
-              <h2 className="text-2xl md:text-3xl font-bold text-white">
-                From players and coaches
-              </h2>
-            </div>
-
-            {fewReviews ? (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {topReviews.map((review) => (
-                  <div
-                    key={review.id || `${review.user_name}-${review.title}`}
-                    className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-4 text-left"
-                  >
-                    <div className="text-amber-400/90 text-xs mb-2 tracking-wide">
-                      {"★".repeat(review.rating)}
-                      <span className="text-slate-600">
-                        {"☆".repeat(5 - review.rating)}
-                      </span>
-                    </div>
-                    <div className="text-white font-semibold text-sm mb-1">
-                      {review.title}
-                    </div>
-                    <p className="text-slate-400 text-sm leading-relaxed line-clamp-3 mb-3">
-                      {review.body}
-                    </p>
-                    <div className="text-slate-500 text-xs">
-                      {review.user_name}
-                      {review.video_title ? ` · ${review.video_title}` : ""}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <>
-                <div className="overflow-hidden rounded-xl border border-slate-800/60 bg-slate-950/20 py-3">
-                  <div
-                    className="review-marquee flex gap-4 w-max"
-                    style={{
-                      animation: `review-scroll ${reviewMarqueeDurationSec}s linear infinite`,
-                    }}
-                  >
-                    {[...topReviews, ...topReviews].map((review, index) => (
-                      <div
-                        key={`${review.id || review.created_date}-${index}`}
-                        className="review-card flex-none w-[260px] sm:w-[272px]"
-                      >
-                        <div className="text-amber-400/90 text-xs mb-2">
-                          {"★".repeat(review.rating)}
-                          <span className="text-slate-600">
-                            {"☆".repeat(5 - review.rating)}
-                          </span>
-                        </div>
-                        <div className="text-white font-semibold text-sm mb-1">
-                          {review.title}
-                        </div>
-                        <div className="text-slate-400 text-sm line-clamp-3 mb-2 leading-relaxed">
-                          {review.body}
-                        </div>
-                        <div className="text-slate-500 text-xs">
-                          {review.user_name}
-                          {review.video_title ? ` · ${review.video_title}` : ""}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <style>{`
-                  @keyframes review-scroll {
-                    0% { transform: translateX(0); }
-                    100% { transform: translateX(-50%); }
-                  }
-                  .review-marquee:hover {
-                    animation-play-state: paused;
-                  }
-                  .review-card {
-                    background: rgba(30, 41, 59, 0.55);
-                    border: 1px solid rgba(71, 85, 105, 0.45);
-                    border-radius: 12px;
-                    padding: 14px 16px;
-                    backdrop-filter: blur(6px);
-                  }
-                `}</style>
-              </>
-            )}
-          </div>
-        </section>
-      )}
     </div>
   );
 }
