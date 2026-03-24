@@ -6,7 +6,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
-export default function VideoCard({ video, showAddToCart = true }) {
+export default function VideoCard({
+  video,
+  showAddToCart = true,
+  promoBadge = null,
+}) {
   const navigate = useNavigate();
   const descriptionPreview = getDescriptionPreviewText(video.description);
   const categoryColors = {
@@ -25,7 +29,7 @@ export default function VideoCard({ video, showAddToCart = true }) {
 
   return (
     <Card
-      className="bg-slate-800 border-slate-700 hover:bg-slate-750 transition-all duration-300 group overflow-hidden cursor-pointer"
+      className="bg-slate-800/95 border-slate-700/90 hover:border-slate-600 hover:bg-slate-800 transition-all duration-300 group overflow-hidden cursor-pointer shadow-lg shadow-black/20"
       onClick={() => navigate(createPageUrl(`VideoDetail?id=${video.id}`))}
     >
       <div className="relative aspect-video">
@@ -42,8 +46,18 @@ export default function VideoCard({ video, showAddToCart = true }) {
           </Badge>
         </div>
 
-        <div className="absolute top-4 right-4 flex gap-2">
-          {video.skill_level !== 'all' && (
+        <div className="absolute top-4 right-4 flex flex-col items-end gap-2">
+          {video.is_featured && (
+            <Badge className="bg-amber-500/90 text-amber-950 border-0 font-semibold text-[10px] uppercase tracking-wide">
+              Featured
+            </Badge>
+          )}
+          {promoBadge === "popular" && !video.is_featured && (
+            <Badge className="bg-violet-500/90 text-white border-0 font-semibold text-[10px] uppercase tracking-wide">
+              Popular
+            </Badge>
+          )}
+          {video.skill_level !== "all" && (
             <Badge className={`${skillLevelColors[video.skill_level]} text-white`}>
               {video.skill_level}
             </Badge>
@@ -56,7 +70,7 @@ export default function VideoCard({ video, showAddToCart = true }) {
         </div>
       </div>
 
-      <CardContent className="p-6">
+      <CardContent className="p-6 md:p-7">
         <div className="mb-4">
         <h3 className="text-xl font-bold text-white group-hover:text-blue-400 transition-colors mb-2">
           {video.title}

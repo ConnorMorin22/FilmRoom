@@ -7,6 +7,7 @@ import Cart from "./Cart";
 import Admin from "./Admin";
 import Login from "./Login";
 import Register from "./Register";
+import Instructors from "./Instructors";
 
 import {
   BrowserRouter as Router,
@@ -24,6 +25,7 @@ const PAGES = {
   Admin: Admin,
   Login: Login,
   Register: Register,
+  Instructors: Instructors,
 };
 
 function _getCurrentPage(url) {
@@ -62,6 +64,7 @@ function PagesContent() {
         <Route path="/" element={<Home />} />
         <Route path="/home" element={<Home />} />
         <Route path="/videos" element={<Videos />} />
+        <Route path="/instructors" element={<Instructors />} />
         <Route path="/videodetail" element={<VideoDetail />} />
         <Route path="/library" element={<Library />} />
         <Route path="/cart" element={<Cart />} />

@@ -15,7 +15,8 @@ import {
   LogOut, 
   User as UserIcon,
   Settings,
-  Crown
+  Crown,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -65,6 +66,7 @@ export default function Layout({ children, currentPageName }) {
 
   const navItems = [
     { name: "Home", url: createPageUrl("Home"), icon: Home },
+    { name: "Instructors", url: createPageUrl("Instructors"), icon: Users },
     { name: "Videos", url: createPageUrl("Videos"), icon: Play },
   ];
 
