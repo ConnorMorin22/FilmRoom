@@ -20,10 +20,75 @@ import {
   Twitter,
   Youtube,
   Globe,
+  ListChecks,
+  Target,
+  Layers,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+
+const SECTION_HEADING_LINE_RE =
+  /^(what you['’]ll learn|built for|my quick read)$/i;
+
+const GENERIC_COURSE_HOOK = "Structured training built to accelerate your game.";
+
+const CATEGORY_SUBHEADLINES = {
+  goalies:
+    "Master positioning, footwork, and shot-stopping at a higher level.",
+  offense: "Create space, beat defenders, and finish with confidence.",
+  defense: "Shut down threats with smarter positioning and reads.",
+  faceoffs:
+    "Win more possessions with elite faceoff technique and strategy.",
+};
+
+function normalizeDescriptionToMarkdown(descriptionText) {
+  if (!descriptionText) return "";
+
+  const lines = descriptionText.split("\n");
+  const normalized = lines.map((line) => {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      return "";
+    }
+
+    if (/^[•●▪◦]\s+/.test(trimmed)) {
+      return `- ${trimmed.replace(/^[•●▪◦]\s+/, "")}`;
+    }
+
+    if (SECTION_HEADING_LINE_RE.test(trimmed)) {
+      return `### ${trimmed}`;
+    }
+
+    return line;
+  });
+
+  return normalized.join("\n");
+}
+
+function stripLeadingParagraphIfDuplicate(descriptionText, subheadline) {
+  if (!descriptionText || !subheadline?.trim()) return descriptionText;
+  const subNorm = subheadline.trim().replace(/\s+/g, " ").toLowerCase();
+  const blocks = descriptionText.split(/\n\s*\n/);
+  const firstRaw = blocks[0]?.trim();
+  if (!firstRaw) return descriptionText;
+  const firstNorm = firstRaw.replace(/\s+/g, " ").toLowerCase();
+
+  if (firstNorm === subNorm) {
+    const rest = blocks.slice(1).join("\n\n").trim();
+    return rest || descriptionText;
+  }
+  if (subNorm.length >= 28 && firstNorm.startsWith(subNorm.slice(0, 28))) {
+    const rest = blocks.slice(1).join("\n\n").trim();
+    return rest || descriptionText;
+  }
+  if (firstNorm.length >= 28 && subNorm.startsWith(firstNorm.slice(0, 28))) {
+    const rest = blocks.slice(1).join("\n\n").trim();
+    return rest || descriptionText;
+  }
+  return descriptionText;
+}
 
 export default function VideoDetail() {
   const navigate = useNavigate();
@@ -185,42 +250,53 @@ export default function VideoDetail() {
     return "";
   }, [video?.description]);
 
-  const markdownDescription = useMemo(() => {
-    if (!descriptionText) return "";
-
-    const sectionHeadingPattern =
-      /^(what you['’]ll learn|built for|my quick read)$/i;
-
-    const lines = descriptionText.split("\n");
-    const normalized = lines.map((line) => {
-      const trimmed = line.trim();
-
-      if (!trimmed) {
-        return "";
-      }
-
-      // Support bullet characters copied from rich text sources.
-      if (/^[•●▪◦]\s+/.test(trimmed)) {
-        return `- ${trimmed.replace(/^[•●▪◦]\s+/, "")}`;
-      }
-
-      if (sectionHeadingPattern.test(trimmed)) {
-        return `### ${trimmed}`;
-      }
-
-      return line;
-    });
-
-    return normalized.join("\n");
-  }, [descriptionText]);
+  const markdownDescription = useMemo(
+    () => normalizeDescriptionToMarkdown(descriptionText),
+    [descriptionText]
+  );
 
   const courseHook = useMemo(() => {
     const preview = getDescriptionPreviewText(descriptionText);
-    if (!preview) return "Structured training built to accelerate your game.";
+    if (!preview) return GENERIC_COURSE_HOOK;
 
     const firstSentence = preview.match(/.*?[.!?](\s|$)/)?.[0]?.trim();
     return firstSentence || preview;
   }, [descriptionText]);
+
+  const courseSubheadline = useMemo(() => {
+    const custom =
+      typeof video?.sales_summary === "string" ? video.sales_summary.trim() : "";
+    if (custom) return custom;
+    const hook = courseHook;
+    if (
+      (hook === GENERIC_COURSE_HOOK || !descriptionText?.trim()) &&
+      video?.category
+    ) {
+      return CATEGORY_SUBHEADLINES[video.category] || hook;
+    }
+    return hook;
+  }, [video?.sales_summary, video?.category, courseHook, descriptionText]);
+
+  const descriptionTextForSales = useMemo(
+    () => stripLeadingParagraphIfDuplicate(descriptionText, courseSubheadline),
+    [descriptionText, courseSubheadline]
+  );
+
+  const markdownDescriptionForSales = useMemo(
+    () => normalizeDescriptionToMarkdown(descriptionTextForSales),
+    [descriptionTextForSales]
+  );
+
+  const shouldShowSalesDescriptionToggle = useMemo(() => {
+    if (!descriptionTextForSales) return false;
+    const lines = descriptionTextForSales.split("\n").length;
+    const hasListFormatting = /(^|\n)\s*[-*]\s+/.test(descriptionTextForSales);
+    return (
+      descriptionTextForSales.length > 280 ||
+      lines > 5 ||
+      hasListFormatting
+    );
+  }, [descriptionTextForSales]);
 
   const shouldShowDescriptionToggle = useMemo(() => {
     if (!descriptionText) return false;
@@ -291,11 +367,21 @@ export default function VideoDetail() {
     setPlaybackTime(0);
   }, [streamUrl]);
 
-  const renderDescriptionBlock = (compact = false) => (
+  const renderDescriptionBlock = (compact = false, salesMode = false) => {
+    const md = salesMode
+      ? markdownDescriptionForSales.trim() || markdownDescription
+      : markdownDescription;
+    const showToggle = salesMode
+      ? markdownDescriptionForSales.trim()
+        ? shouldShowSalesDescriptionToggle
+        : shouldShowDescriptionToggle
+      : shouldShowDescriptionToggle;
+
+    return (
     <div className={compact ? "mb-6" : "mb-10"}>
       <div
         className={`relative overflow-hidden transition-all duration-300 ${
-          !isDescriptionExpanded && shouldShowDescriptionToggle
+          !isDescriptionExpanded && showToggle
             ? compact
               ? "max-h-[8.5rem]"
               : "max-h-[13rem]"
@@ -334,15 +420,15 @@ export default function VideoDetail() {
             ),
           }}
         >
-          {markdownDescription || "No description available."}
+          {md || "No description available."}
         </ReactMarkdown>
 
-        {!isDescriptionExpanded && shouldShowDescriptionToggle && (
+        {!isDescriptionExpanded && showToggle && (
           <div className="pointer-events-none absolute inset-x-0 bottom-0 h-14 bg-gradient-to-t from-slate-900 to-transparent" />
         )}
       </div>
 
-      {shouldShowDescriptionToggle && (
+      {showToggle && (
         <Button
           variant="ghost"
           onClick={() => setIsDescriptionExpanded((prev) => !prev)}
@@ -352,7 +438,8 @@ export default function VideoDetail() {
         </Button>
       )}
     </div>
-  );
+    );
+  };
 
   const renderInstructorCard = () => (
     <Card className="bg-slate-800 border-slate-700">
@@ -418,9 +505,11 @@ export default function VideoDetail() {
     </Card>
   );
 
-  const renderReviewsSection = () => (
-    <div className="mb-8">
-      <h3 className="text-2xl font-bold text-white mb-4">Reviews</h3>
+  const renderReviewsSection = ({ hideTitle = false } = {}) => (
+    <div className={hideTitle ? "" : "mb-8"}>
+      {!hideTitle && (
+        <h3 className="text-2xl font-bold text-white mb-4">Reviews</h3>
+      )}
       {hasPurchased && (
         <form
           onSubmit={handleReviewSubmit}
@@ -683,167 +772,309 @@ export default function VideoDetail() {
             </div>
           </div>
         ) : (
-          <div className="grid lg:grid-cols-3 gap-8">
-            <div className="lg:col-span-1 lg:order-2 order-1">
-              <Card className="bg-slate-800 border-slate-700 lg:sticky lg:top-8">
-                <CardHeader>
-                  <CardTitle className="text-4xl font-bold text-white">
-                    ${video.price}
+          <div className="space-y-16 lg:space-y-20">
+            {/* Sales hero — two columns */}
+            <div className="grid lg:grid-cols-12 gap-8 lg:gap-10 items-start">
+              <div className="lg:col-span-7 xl:col-span-8 space-y-6 lg:order-1 order-2">
+                <div className="rounded-2xl overflow-hidden border border-slate-700/80 bg-slate-950 shadow-2xl shadow-black/40 ring-1 ring-white/5">
+                  <div className="relative aspect-video bg-black">
+                    {video.preview_url ? (
+                      <video
+                        className="w-full h-full object-contain bg-black"
+                        src={video.preview_url}
+                        controls
+                        playsInline
+                      />
+                    ) : (
+                      <>
+                        <img
+                          src={
+                            video.thumbnail_url ||
+                            `https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800&h=600&fit=crop`
+                          }
+                          alt={video.title}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="text-center">
+                            <div className="w-20 h-20 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center mb-4 ring-1 ring-white/20">
+                              <Play className="w-10 h-10 text-white ml-1" />
+                            </div>
+                            <p className="text-white/90 text-sm font-medium tracking-wide">
+                              Preview clip
+                            </p>
+                          </div>
+                        </div>
+                      </>
+                    )}
+                    <div className="absolute top-3 left-3 z-10">
+                      <span className="inline-flex items-center rounded-md bg-black/55 backdrop-blur-sm px-2.5 py-1 text-[11px] font-semibold uppercase tracking-wider text-white/95 ring-1 ring-white/15">
+                        Preview
+                      </span>
+                    </div>
+                  </div>
+                </div>
+                <p className="text-sm text-slate-500 -mt-2 pl-1">
+                  {video.preview_url
+                    ? "Watch a preview of how this course is taught."
+                    : "See how this course is taught — full video unlocks after purchase."}
+                </p>
+
+                <div className="pt-2">
+                  <h1 className="text-4xl sm:text-5xl md:text-[2.75rem] font-bold text-white tracking-tight leading-[1.08] mb-4">
+                    {video.title}
+                  </h1>
+                  <p className="text-lg sm:text-xl text-slate-300 leading-relaxed max-w-3xl font-light">
+                    {courseSubheadline}
+                  </p>
+                  <div className="mt-6 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm text-slate-500 border-t border-slate-800 pt-6">
+                    <span className="inline-flex items-center gap-1.5 text-slate-400">
+                      <Star className="w-3.5 h-3.5 text-amber-400/90 shrink-0" />
+                      <span className="font-medium text-slate-300">4.9</span>
+                      <span>rating</span>
+                    </span>
+                    <span className="text-slate-600 hidden sm:inline" aria-hidden>
+                      ·
+                    </span>
+                    <span>Premium instructional course</span>
+                    <span className="text-slate-600 hidden sm:inline" aria-hidden>
+                      ·
+                    </span>
+                    <span>Built for serious players</span>
+                    <span className="text-slate-600 hidden sm:inline" aria-hidden>
+                      ·
+                    </span>
+                    <span>One-time purchase</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="lg:col-span-5 xl:col-span-4 lg:order-2 order-1">
+                <Card className="border-slate-600/50 bg-slate-800/90 backdrop-blur-sm shadow-xl shadow-black/30 lg:sticky lg:top-8 rounded-2xl overflow-hidden ring-1 ring-white/5">
+                  <CardHeader className="space-y-1 pb-4">
+                    <p className="text-xs font-medium uppercase tracking-widest text-slate-500">
+                      Full course access
+                    </p>
+                    <CardTitle className="text-4xl sm:text-5xl font-bold text-white tabular-nums">
+                      ${video.price}
+                    </CardTitle>
+                    <p className="text-sm text-slate-500">One-time price · no subscription</p>
+                  </CardHeader>
+                  <CardContent className="space-y-6 pt-0">
+                    {!user ? (
+                      <>
+                        <Button
+                          onClick={handleAddToCart}
+                          className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/10"
+                        >
+                          <ShoppingCart className="w-4 h-4 mr-2 shrink-0" />
+                          Get Instant Access
+                        </Button>
+                        <p className="text-center text-xs text-slate-500 -mt-2">
+                          One-time purchase. Lifetime access.
+                        </p>
+                      </>
+                    ) : isInCart ? (
+                      <div className="space-y-2">
+                        <Button
+                          onClick={() => navigate(createPageUrl("Cart"))}
+                          className="w-full h-12 text-base font-semibold bg-green-600 hover:bg-green-700"
+                        >
+                          <CheckCircle className="w-4 h-4 mr-2" />
+                          In Cart — Checkout
+                        </Button>
+                        <p className="text-slate-400 text-sm text-center">
+                          Item added to your cart
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <Button
+                          onClick={handleAddToCart}
+                          disabled={isAddingToCart}
+                          className="w-full h-12 text-base font-semibold bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white shadow-lg shadow-cyan-500/10"
+                        >
+                          <ShoppingCart className="w-4 h-4 mr-2 shrink-0" />
+                          {isAddingToCart ? "Adding…" : "Unlock Full Course"}
+                        </Button>
+                        <p className="text-center text-xs text-slate-500 -mt-2">
+                          One-time purchase. Lifetime access.
+                        </p>
+                      </>
+                    )}
+
+                    <ul className="space-y-2.5 text-sm text-slate-300">
+                      {[
+                        "Lifetime access",
+                        "Watch anytime, any device",
+                        "Instant access after purchase",
+                        "Premium instructional course",
+                      ].map((line) => (
+                        <li key={line} className="flex items-start gap-2.5">
+                          <CheckCircle className="w-4 h-4 text-emerald-400/90 shrink-0 mt-0.5" />
+                          <span>{line}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    <div className="rounded-xl border border-slate-700/80 bg-slate-900/50 p-4 space-y-2.5 text-sm">
+                      <div className="flex justify-between gap-4 text-slate-400">
+                        <span>Duration</span>
+                        <span className="text-slate-200 font-medium tabular-nums">
+                          {video.duration} min
+                        </span>
+                      </div>
+                      <div className="flex justify-between gap-4 text-slate-400">
+                        <span>Category</span>
+                        <span className="text-slate-200 font-medium capitalize">
+                          {video.category}
+                        </span>
+                      </div>
+                      {video.skill_level !== "all" && (
+                        <div className="flex justify-between gap-4 text-slate-400">
+                          <span>Skill level</span>
+                          <span className="text-slate-200 font-medium capitalize">
+                            {video.skill_level}
+                          </span>
+                        </div>
+                      )}
+                      <div className="flex justify-between gap-4 text-slate-400">
+                        <span>Rating</span>
+                        <span className="inline-flex items-center gap-1 text-slate-200 font-medium">
+                          <Star className="w-3.5 h-3.5 text-amber-400" />
+                          4.9
+                        </span>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+
+            {/* Course curriculum / details */}
+            <section className="max-w-4xl">
+              <div className="mb-6">
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-2">
+                  Course details
+                </h2>
+                <p className="text-lg text-slate-300 max-w-2xl">
+                  Everything included in this program — structured for real progress.
+                </p>
+              </div>
+              <div className="rounded-2xl border border-slate-800 bg-slate-800/30 p-6 md:p-8 ring-1 ring-white/5">
+                {renderDescriptionBlock(false, true)}
+              </div>
+            </section>
+
+            {/* Why this course works */}
+            <section>
+              <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
+                Why this course works
+              </h2>
+              <p className="text-slate-400 text-sm md:text-base mb-8 max-w-2xl">
+                Clear instruction designed for athletes who want results, not noise.
+              </p>
+              <div className="grid sm:grid-cols-3 gap-4 md:gap-5">
+                {[
+                  {
+                    icon: Target,
+                    title: "Elite-level experience",
+                    body: "Built from what works at the highest levels of the game.",
+                  },
+                  {
+                    icon: Layers,
+                    title: "Real in-game performance",
+                    body: "Structured so you can apply it when it matters — not just in theory.",
+                  },
+                  {
+                    icon: ListChecks,
+                    title: "Step-by-step clarity",
+                    body: "Progressive instruction — no guesswork, no filler.",
+                  },
+                ].map(({ icon: Icon, title, body }) => (
+                  <div
+                    key={title}
+                    className="rounded-xl border border-slate-700/60 bg-slate-800/40 p-5 md:p-6 ring-1 ring-white/5"
+                  >
+                    <div className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg bg-cyan-500/10 text-cyan-300">
+                      <Icon className="w-5 h-5" strokeWidth={1.75} />
+                    </div>
+                    <h3 className="text-base font-semibold text-white mb-2">{title}</h3>
+                    <p className="text-sm text-slate-400 leading-relaxed">{body}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* Instructor */}
+            <section className="space-y-3">
+              <div>
+                <h2 className="text-xs font-semibold uppercase tracking-widest text-slate-500 mb-1">
+                  Your instructor
+                </h2>
+                <p className="text-slate-400 text-sm max-w-xl">
+                  Learn from someone who has competed and coached at a serious level.
+                </p>
+              </div>
+              {renderInstructorCard()}
+            </section>
+
+            {/* Reviews */}
+            <section>
+              <Card className="border-slate-700/80 bg-slate-800/50 rounded-2xl ring-1 ring-white/5">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-xl md:text-2xl text-white">
+                    What students say
                   </CardTitle>
+                  <p className="text-sm text-slate-400 font-normal leading-relaxed">
+                    Real feedback from the FilmRoom community — reviews help you
+                    decide with confidence.
+                  </p>
                 </CardHeader>
-                <CardContent className="space-y-4">
+                <CardContent>{renderReviewsSection({ hideTitle: true })}</CardContent>
+              </Card>
+            </section>
+
+            {/* Lower CTA */}
+            <section className="pb-4">
+              <Card className="rounded-2xl border border-slate-700/80 bg-gradient-to-br from-slate-800/90 to-slate-900/90 overflow-hidden ring-1 ring-cyan-500/10">
+                <CardContent className="p-8 md:p-10 text-center">
+                  <h2 className="text-2xl md:text-3xl font-bold text-white mb-2">
+                    Ready to train smarter?
+                  </h2>
+                  <p className="text-slate-400 text-sm md:text-base mb-6 max-w-md mx-auto">
+                    Get full access and work through the course on your schedule.
+                  </p>
                   {!user ? (
                     <Button
                       onClick={handleAddToCart}
-                      className="w-full bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white"
+                      className="h-12 px-8 text-base font-semibold bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white"
                     >
                       <ShoppingCart className="w-4 h-4 mr-2" />
-                      Sign In to Unlock Course
+                      Get Instant Access
                     </Button>
                   ) : isInCart ? (
-                    <div>
-                      <Button
-                        onClick={() => navigate(createPageUrl("Cart"))}
-                        className="w-full bg-green-600 hover:bg-green-700 mb-3"
-                      >
-                        <CheckCircle className="w-4 h-4 mr-2" />
-                        In Cart - Checkout
-                      </Button>
-                      <p className="text-slate-400 text-sm text-center">
-                        Item added to your cart
-                      </p>
-                    </div>
+                    <Button
+                      onClick={() => navigate(createPageUrl("Cart"))}
+                      className="h-12 px-8 text-base font-semibold bg-green-600 hover:bg-green-700"
+                    >
+                      <CheckCircle className="w-4 h-4 mr-2" />
+                      Go to checkout
+                    </Button>
                   ) : (
                     <Button
                       onClick={handleAddToCart}
                       disabled={isAddingToCart}
-                      className="w-full bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white"
+                      className="h-12 px-8 text-base font-semibold bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white"
                     >
                       <ShoppingCart className="w-4 h-4 mr-2" />
-                      {isAddingToCart ? "Adding..." : "Unlock Course"}
+                      {isAddingToCart ? "Adding…" : "Unlock Full Course"}
                     </Button>
                   )}
-
-                  <div className="space-y-3 text-sm text-slate-300">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-400" />
-                      Lifetime access
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-400" />
-                      Watch anytime
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-400" />
-                      Instant access after purchase
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="w-4 h-4 text-green-400" />
-                      Premium instructional course
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-slate-700 space-y-2 text-sm">
-                    <div className="flex justify-between text-slate-300">
-                      <span>Duration</span>
-                      <span>{video.duration} min</span>
-                    </div>
-                    <div className="flex justify-between text-slate-300">
-                      <span>Category</span>
-                      <span className="capitalize">{video.category}</span>
-                    </div>
-                    {video.skill_level !== "all" && (
-                      <div className="flex justify-between text-slate-300">
-                        <span>Skill level</span>
-                        <span className="capitalize">{video.skill_level}</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between text-slate-300">
-                      <span>Rating</span>
-                      <span className="inline-flex items-center gap-1">
-                        <Star className="w-3 h-3" />
-                        4.9
-                      </span>
-                    </div>
-                  </div>
                 </CardContent>
               </Card>
-            </div>
-
-            <div className="lg:col-span-2 lg:order-1 order-2 space-y-8">
-              <Card className="bg-slate-800 border-slate-700 overflow-hidden">
-                <div className="relative aspect-video">
-                  {video.preview_url ? (
-                    <video
-                      className="w-full h-full bg-black"
-                      src={video.preview_url}
-                      controls
-                      playsInline
-                    />
-                  ) : (
-                    <>
-                      <img
-                        src={
-                          video.thumbnail_url ||
-                          `https://images.unsplash.com/photo-1554068865-24cecd4e34b8?w=800&h=600&fit=crop`
-                        }
-                        alt={video.title}
-                        className="w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                        <div className="text-center">
-                          <div className="w-20 h-20 bg-blue-500/80 backdrop-blur rounded-full flex items-center justify-center mb-4">
-                            <Play className="w-10 h-10 text-white ml-1" />
-                          </div>
-                          <p className="text-white font-medium">Preview Available</p>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              </Card>
-
-              <div>
-                <div className="flex flex-wrap gap-3 mb-4">
-                  <Badge className={categoryColors[video.category]}>{video.category}</Badge>
-                  {video.skill_level !== "all" && (
-                    <Badge className={`${skillLevelColors[video.skill_level]} text-white`}>
-                      {video.skill_level}
-                    </Badge>
-                  )}
-                  <Badge variant="outline" className="border-slate-600 text-slate-300">
-                    <Clock className="w-3 h-3 mr-1" />
-                    {video.duration} minutes
-                  </Badge>
-                </div>
-
-                <h1 className="text-4xl md:text-5xl font-bold mb-4">{video.title}</h1>
-                <p className="text-slate-300 text-lg mb-6 leading-relaxed">{courseHook}</p>
-                {renderDescriptionBlock(false)}
-              </div>
-
-              {renderInstructorCard()}
-              {renderReviewsSection()}
-
-              <Card className="bg-gradient-to-r from-blue-600/20 to-cyan-500/20 border-blue-500/30">
-                <CardContent className="p-6 text-center">
-                  <h3 className="text-2xl font-bold text-white mb-2">
-                    Ready to Start Training?
-                  </h3>
-                  <p className="text-slate-300 mb-4">
-                    Unlock instant access and train at your own pace.
-                  </p>
-                  <Button
-                    onClick={handleAddToCart}
-                    disabled={isAddingToCart}
-                    className="bg-gradient-to-r from-blue-500 to-cyan-400 hover:from-blue-600 hover:to-cyan-500 text-white"
-                  >
-                    <ShoppingCart className="w-4 h-4 mr-2" />
-                    {isAddingToCart ? "Adding..." : "Unlock Course"}
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
+            </section>
           </div>
         )}
       </div>
