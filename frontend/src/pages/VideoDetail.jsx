@@ -45,7 +45,9 @@ export default function VideoDetail() {
   const [reviewError, setReviewError] = useState("");
   const [isSubmittingReview, setIsSubmittingReview] = useState(false);
   const [isDescriptionExpanded, setIsDescriptionExpanded] = useState(false);
+  const [playbackTime, setPlaybackTime] = useState(0);
   const playerRef = useRef(null);
+  const chapterRowRefs = useRef([]);
 
   const loadVideoDetail = useCallback(async () => {
     const urlParams = new URLSearchParams(window.location.search);
@@ -255,14 +257,39 @@ export default function VideoDetail() {
   const seekToChapter = (time) => {
     if (!playerRef.current || !Number.isFinite(time)) return;
     playerRef.current.currentTime = time;
+    setPlaybackTime(time);
     playerRef.current.play().catch(() => {
       // Ignore autoplay errors and still move user to position.
     });
   };
 
+  const activeChapterIndex = useMemo(() => {
+    if (!chapterList.length) return -1;
+    let idx = -1;
+    for (let i = 0; i < chapterList.length; i++) {
+      if (chapterList[i].time <= playbackTime) idx = i;
+      else break;
+    }
+    return idx;
+  }, [chapterList, playbackTime]);
+
+  useEffect(() => {
+    chapterRowRefs.current = chapterRowRefs.current.slice(0, chapterList.length);
+  }, [chapterList.length]);
+
+  useEffect(() => {
+    if (activeChapterIndex < 0) return;
+    const el = chapterRowRefs.current[activeChapterIndex];
+    el?.scrollIntoView({ block: "nearest", behavior: "smooth" });
+  }, [activeChapterIndex]);
+
   useEffect(() => {
     setIsDescriptionExpanded(false);
   }, [video?.id]);
+
+  useEffect(() => {
+    setPlaybackTime(0);
+  }, [streamUrl]);
 
   const renderDescriptionBlock = (compact = false) => (
     <div className={compact ? "mb-6" : "mb-10"}>
@@ -536,6 +563,12 @@ export default function VideoDetail() {
                       src={streamUrl}
                       controls
                       playsInline
+                      onTimeUpdate={(e) =>
+                        setPlaybackTime(e.currentTarget.currentTime)
+                      }
+                      onSeeked={(e) =>
+                        setPlaybackTime(e.currentTarget.currentTime)
+                      }
                     />
                   ) : (
                     <div className="text-center">
@@ -572,25 +605,58 @@ export default function VideoDetail() {
                   <CardTitle className="text-white text-xl">Course Navigation</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="rounded-lg border border-slate-700 bg-slate-900/60 p-4">
-                    <h4 className="text-white font-medium mb-2">Chapters</h4>
+                  <div className="rounded-xl border border-slate-700/80 bg-slate-950/50 p-3">
+                    <h4 className="text-white text-sm font-semibold tracking-tight mb-3 px-1">
+                      Chapters
+                    </h4>
                     {chapterList.length === 0 ? (
-                      <p className="text-slate-400 text-sm">Chapters coming soon.</p>
+                      <p className="text-slate-400 text-sm px-1">
+                        Chapters coming soon.
+                      </p>
                     ) : (
-                      <div className="space-y-2">
-                        {chapterList.map((chapter, index) => (
-                          <button
-                            key={`${chapter.title}-${chapter.time}-${index}`}
-                            type="button"
-                            onClick={() => seekToChapter(chapter.time)}
-                            className="w-full text-left rounded-md border border-transparent px-2 py-2 hover:border-slate-700 hover:bg-slate-800/70 transition"
-                          >
-                            <div className="text-xs text-blue-300 font-medium">
-                              {formatChapterTime(chapter.time)}
-                            </div>
-                            <div className="text-sm text-slate-200">{chapter.title}</div>
-                          </button>
-                        ))}
+                      <div className="max-h-[min(52vh,28rem)] overflow-y-auto overflow-x-hidden pr-1 space-y-1.5 [-webkit-overflow-scrolling:touch]">
+                        {chapterList.map((chapter, index) => {
+                          const isActive = index === activeChapterIndex;
+                          return (
+                            <button
+                              key={`${chapter.title}-${chapter.time}-${index}`}
+                              ref={(el) => {
+                                chapterRowRefs.current[index] = el;
+                              }}
+                              type="button"
+                              onClick={() => seekToChapter(chapter.time)}
+                              className={[
+                                "group w-full cursor-pointer text-left rounded-lg border transition-colors duration-200 ease-out",
+                                "flex gap-3 items-start py-3 px-3",
+                                "border-transparent",
+                                isActive
+                                  ? "bg-cyan-500/10 border-cyan-500/25 shadow-[inset_3px_0_0_0_rgba(34,211,238,0.85)]"
+                                  : "hover:bg-slate-800/90 hover:border-slate-600/60",
+                              ].join(" ")}
+                            >
+                              <span
+                                className={[
+                                  "shrink-0 tabular-nums text-[11px] font-medium tracking-wide pt-0.5 min-w-[3rem]",
+                                  isActive
+                                    ? "text-cyan-300"
+                                    : "text-slate-500 group-hover:text-slate-400",
+                                ].join(" ")}
+                              >
+                                {formatChapterTime(chapter.time)}
+                              </span>
+                              <span
+                                className={[
+                                  "flex-1 text-sm leading-snug",
+                                  isActive
+                                    ? "text-white font-semibold"
+                                    : "text-slate-300 font-medium group-hover:text-slate-100",
+                                ].join(" ")}
+                              >
+                                {chapter.title}
+                              </span>
+                            </button>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
