@@ -47,8 +47,14 @@ const videoSchema = new mongoose.Schema({
   previewKey: {
     type: String,
   },
+  /** @deprecated Prefer stripePriceId. Checkout uses Price IDs (price_), not Product IDs (prod_). */
   stripeProductId: {
     type: String,
+  },
+  /** Stripe Price ID for Checkout: line_items[].price — must start with price_ */
+  stripePriceId: {
+    type: String,
+    trim: true,
   },
   price: {
     type: Number,

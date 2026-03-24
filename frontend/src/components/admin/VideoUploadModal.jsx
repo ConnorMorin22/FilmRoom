@@ -114,7 +114,7 @@ const buildInitialState = (video) => ({
   video_url: video?.video_url || "",
   s3Key: video?.videoKey || "",
   previewKey: video?.previewKey || "",
-  stripeProductId: video?.stripeProductId || "",
+  stripePriceId: video?.stripePriceId || "",
   preview_url: video?.preview_url || "",
   thumbnail_url: video?.thumbnail_url || "",
   duration: video?.duration?.toString() || "",
@@ -291,7 +291,7 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
           title: processedData.title,
           description: processedData.description,
           s3Key: processedData.s3Key || undefined,
-          stripeProductId: processedData.stripeProductId,
+          stripePriceId: processedData.stripePriceId,
           price: processedData.price,
           instructor_id: processedData.instructor_id || undefined,
           instructor_name: processedData.instructor_name,
@@ -319,7 +319,7 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
           title: processedData.title,
           description: processedData.description,
           s3Key: processedData.s3Key,
-          stripeProductId: processedData.stripeProductId,
+          stripePriceId: processedData.stripePriceId,
           price: processedData.price,
           instructor_id: processedData.instructor_id || undefined,
           instructor: processedData.instructor_name,
@@ -475,13 +475,19 @@ export default function VideoUploadModal({ onClose, onVideoUploaded, video }) {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="stripeProductId" className="text-white">Stripe Product ID</Label>
+                    <Label htmlFor="stripePriceId" className="text-white">
+                      Stripe Price ID
+                    </Label>
                     <Input
-                      id="stripeProductId"
-                      value={videoData.stripeProductId}
-                      onChange={(e) => handleInputChange("stripeProductId", e.target.value)}
+                      id="stripePriceId"
+                      placeholder="price_..."
+                      value={videoData.stripePriceId}
+                      onChange={(e) => handleInputChange("stripePriceId", e.target.value)}
                       className="bg-slate-700 border-slate-600 text-white"
                     />
+                    <p className="text-xs text-slate-400 mt-1">
+                      Use a Price ID (price_…), not a Product ID (prod_…).
+                    </p>
                   </div>
                 </div>
 

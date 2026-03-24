@@ -36,6 +36,28 @@ const buildPublicUrl = (bucket, key) => {
 const sanitizeFileName = (fileName) =>
   path.basename(fileName).replace(/\s+/g, "_");
 
+const STRIPE_PRICE_ID_RE = /^price_[a-zA-Z0-9]+$/;
+
+/** @returns {{ value: string | null } | { error: string }} */
+function parseStripePriceId(raw) {
+  if (raw == null || raw === "") return { value: null };
+  const s = String(raw).trim();
+  if (!s) return { value: null };
+  if (s.startsWith("prod_")) {
+    return {
+      error:
+        "Use a Stripe Price ID (price_...), not a Product ID (prod_...).",
+    };
+  }
+  if (!STRIPE_PRICE_ID_RE.test(s)) {
+    return {
+      error:
+        "stripePriceId must be a valid Stripe Price ID starting with price_",
+    };
+  }
+  return { value: s };
+}
+
 const ensureS3Credentials = async () => {
   try {
     await s3Client.config.credentials();
@@ -315,7 +337,7 @@ exports.createVideo = async (req, res) => {
       title,
       description,
       s3Key,
-      stripeProductId,
+      stripePriceId,
       price,
       instructor,
       category,
@@ -349,6 +371,17 @@ exports.createVideo = async (req, res) => {
         .json({ error: "thumbnail_url and duration are required" });
     }
 
+    const parsedPriceId = parseStripePriceId(stripePriceId);
+    if (parsedPriceId.error) {
+      return res.status(400).json({ error: parsedPriceId.error });
+    }
+    if (Number(price) > 0 && !parsedPriceId.value) {
+      return res.status(400).json({
+        error:
+          "stripePriceId is required for paid courses (Stripe Price ID: price_...)",
+      });
+    }
+
     const bucket = getBucketName();
     const finalVideoUrl = video_url || buildPublicUrl(bucket, s3Key);
 
@@ -372,7 +405,7 @@ exports.createVideo = async (req, res) => {
       thumbnail_url,
       video_url: finalVideoUrl,
       videoKey: s3Key,
-      stripeProductId,
+      stripePriceId: parsedPriceId.value,
       price,
       duration,
       category,
@@ -400,7 +433,7 @@ exports.updateVideo = async (req, res) => {
     const allowedFields = [
       "title",
       "description",
-      "stripeProductId",
+      "stripePriceId",
       "price",
       "category",
       "duration",
@@ -445,6 +478,15 @@ exports.updateVideo = async (req, res) => {
     if (Object.prototype.hasOwnProperty.call(req.body || {}, "instructor_id")) {
       updates.instructor_id = req.body.instructor_id || null;
     }
+
+    if (Object.prototype.hasOwnProperty.call(updates, "stripePriceId")) {
+      const parsed = parseStripePriceId(updates.stripePriceId);
+      if (parsed.error) {
+        return res.status(400).json({ error: parsed.error });
+      }
+      updates.stripePriceId = parsed.value;
+    }
+
     if (updates.instructor_id) {
       const selectedInstructor = await Instructor.findById(updates.instructor_id);
       if (!selectedInstructor) {

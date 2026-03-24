@@ -5,6 +5,14 @@ const Purchase = require("../models/Purchase");
 const Video = require("../models/Video");
 const User = require("../models/User");
 
+const STRIPE_PRICE_ID_RE = /^price_[a-zA-Z0-9]+$/;
+
+function getValidStripePriceId(video) {
+  const raw = (video.stripePriceId || "").trim();
+  if (STRIPE_PRICE_ID_RE.test(raw)) return raw;
+  return null;
+}
+
 // @desc    Create Stripe checkout session (or demo purchase)
 // @route   POST /api/purchases/create-checkout
 exports.createCheckout = async (req, res) => {
@@ -56,34 +64,28 @@ exports.createCheckout = async (req, res) => {
       });
     }
 
-    // PRODUCTION MODE: Create Stripe checkout session
+    // PRODUCTION MODE: Stripe Checkout must use a Price ID (price_), not prod_ or price_data
+    const stripePriceId = getValidStripePriceId(video);
+    if (!stripePriceId) {
+      return res.status(400).json({
+        error:
+          "This course is missing a valid Stripe Price ID (price_...). Set it in admin.",
+      });
+    }
+
     const frontendUrl =
       process.env.FRONTEND_URL?.trim() ||
       (process.env.NODE_ENV === "production"
         ? "https://lacrossefilmroom.com"
         : "http://localhost:5173");
-    const thumbnailUrl = video.thumbnail_url || video.thumbnail;
 
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
-      line_items: [
-        {
-          price_data: {
-            currency: "usd",
-            product_data: {
-              name: video.title,
-              description: video.description,
-              images: thumbnailUrl ? [thumbnailUrl] : [],
-            },
-            unit_amount: video.price * 100, // in cents
-          },
-          quantity: 1,
-        },
-      ],
+      line_items: [{ price: stripePriceId, quantity: 1 }],
       metadata: {
-        userId: userId.toString(),
-        videoId: videoId.toString(),
+        userId: String(userId),
+        videoId: String(videoId),
       },
       success_url: `${frontendUrl}/Library`,
       cancel_url: `${frontendUrl}/Videos`,
