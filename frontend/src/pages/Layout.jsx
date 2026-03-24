@@ -83,13 +83,13 @@ export default function Layout({ children, currentPageName }) {
         `}</style>
         
         <header className="bg-slate-800/90 backdrop-blur border-b border-slate-700/50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="max-w-7xl mx-auto pl-5 pr-4 sm:pl-7 sm:pr-6 lg:pl-9 lg:pr-8">
             <div className="flex justify-between items-center h-[4.25rem]">
               <Link to={createPageUrl("Home")} className="flex items-center gap-3">
                 <img 
                   src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/68ceb51190f2a080ada61530/92600820c_FilmRoom-01.png"
                   alt="FilmRoom"
-                  className="h-8 w-auto object-contain"
+                  className="h-7 sm:h-9 md:h-10 w-auto object-contain"
                 />
               </Link>
               
@@ -156,13 +156,13 @@ export default function Layout({ children, currentPageName }) {
       `}</style>
       
       <header className="bg-slate-800/90 backdrop-blur border-b border-slate-700/50 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto pl-5 pr-4 sm:pl-7 sm:pr-6 lg:pl-9 lg:pr-8">
           <div className="flex justify-between items-center h-[4.25rem]">
             <Link to={createPageUrl("Home")} className="flex items-center gap-3">
               <img 
                 src="https://qtrypzzcjebvfcihiynt.supabase.co/storage/v1/object/public/base44-prod/public/68ceb51190f2a080ada61530/92600820c_FilmRoom-01.png"
                 alt="FilmRoom"
-                className="h-8 w-auto object-contain"
+                className="h-7 sm:h-9 md:h-10 w-auto object-contain"
               />
             </Link>
             
