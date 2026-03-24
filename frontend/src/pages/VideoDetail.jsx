@@ -600,7 +600,7 @@ export default function VideoDetail() {
             </div>
 
             <div className="space-y-6">
-              <Card className="bg-slate-800 border-slate-700 lg:sticky lg:top-8">
+              <Card className="bg-slate-800 border-slate-700">
                 <CardHeader>
                   <CardTitle className="text-white text-xl">Course Navigation</CardTitle>
                 </CardHeader>
