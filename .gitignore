@@ -1,0 +1,12 @@
+# Dependencies
+node_modules/
+
+# Secrets — never commit (backend also ignores .env under backend/)
+.env
+.env.*
+!.env.example
+
+# Frontend build output
+frontend/dist/
+
+.DS_Store

@@ -57,7 +57,11 @@ exports.createCheckout = async (req, res) => {
     }
 
     // PRODUCTION MODE: Create Stripe checkout session
-    const frontendUrl = process.env.FRONTEND_URL || "http://localhost:5173";
+    const frontendUrl =
+      process.env.FRONTEND_URL?.trim() ||
+      (process.env.NODE_ENV === "production"
+        ? "https://lacrossefilmroom.com"
+        : "http://localhost:5173");
     const thumbnailUrl = video.thumbnail_url || video.thumbnail;
 
     const session = await stripe.checkout.sessions.create({
