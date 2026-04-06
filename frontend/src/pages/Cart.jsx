@@ -77,23 +77,16 @@ export default function Cart() {
     setIsProcessing(true);
 
     try {
-      // Process each video purchase through your backend
-      for (const item of cartItems) {
-        const data = await Purchase.create({ video_id: item.video.id });
-        if (data?.url) {
-          window.location.href = data.url;
-          return;
-        }
+      const data = await Purchase.create({
+        video_ids: cartItems.map((item) => item.video.id),
+      });
+
+      if (data?.url) {
+        window.location.href = data.url;
+        return;
       }
 
-      // Clear cart after successful purchases
-      const deletePromises = cartItems.map((item) =>
-        CartItem.delete(item.cartItem.id)
-      );
-      await Promise.all(deletePromises);
-
-      // Redirect to library
-      navigate(createPageUrl("Library"));
+      throw new Error("Checkout session was not created");
     } catch (error) {
       console.error("Checkout error:", error);
       if (error.response?.status === 401) {

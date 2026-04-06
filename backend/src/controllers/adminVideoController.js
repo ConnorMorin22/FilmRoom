@@ -5,11 +5,15 @@ const {
   UploadPartCommand,
   CompleteMultipartUploadCommand,
   AbortMultipartUploadCommand,
+  DeleteObjectCommand,
 } = require("@aws-sdk/client-s3");
 const { createPresignedPost } = require("@aws-sdk/s3-presigned-post");
 const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const Video = require("../models/Video");
 const Instructor = require("../models/Instructor");
+const Purchase = require("../models/Purchase");
+const Review = require("../models/Review");
+const User = require("../models/User");
 
 const getRegion = () =>
   process.env.AWS_REGION ||
@@ -31,6 +35,50 @@ const s3Client = new S3Client({
 const buildPublicUrl = (bucket, key) => {
   const encodedKey = encodeURIComponent(key).replace(/%2F/g, "/");
   return `https://${bucket}.s3.${getRegion()}.amazonaws.com/${encodedKey}`;
+};
+
+const toCanonicalMediaUrl = (rawUrl) => {
+  if (rawUrl == null) return rawUrl;
+  const trimmed = String(rawUrl).trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = new URL(trimmed);
+    const bucketHost = `${getBucketName()}.s3.${getRegion()}.amazonaws.com`;
+    if (parsed.hostname !== bucketHost) {
+      return trimmed;
+    }
+    const key = decodeURIComponent(parsed.pathname.replace(/^\/+/, ""));
+    if (!key) return trimmed;
+    return buildPublicUrl(getBucketName(), key);
+  } catch (error) {
+    return trimmed;
+  }
+};
+
+const getS3KeyFromUrl = (url) => {
+  if (!url || typeof url !== "string") return null;
+  try {
+    const parsed = new URL(url);
+    const bucketHost = `${getBucketName()}.s3.${getRegion()}.amazonaws.com`;
+    if (parsed.hostname !== bucketHost) return null;
+    return decodeURIComponent(parsed.pathname.replace(/^\/+/, "")) || null;
+  } catch (error) {
+    return null;
+  }
+};
+
+const deleteS3KeySafe = async (key) => {
+  if (!key) return;
+  try {
+    await s3Client.send(
+      new DeleteObjectCommand({
+        Bucket: getBucketName(),
+        Key: key,
+      })
+    );
+  } catch (error) {
+    console.warn("Failed deleting S3 key:", key, error.message);
+  }
 };
 
 const sanitizeFileName = (fileName) =>
@@ -400,9 +448,10 @@ exports.createVideo = async (req, res) => {
       instructor_id: selectedInstructor?._id || undefined,
       instructor_name: selectedInstructor?.name || instructor,
       instructor_bio: selectedInstructor?.bio || instructor_bio,
-      instructor_photo: selectedInstructor?.photo_url || instructor_photo,
+      instructor_photo:
+        selectedInstructor?.photo_url || toCanonicalMediaUrl(instructor_photo),
       instructor_socials: selectedInstructor ? toLegacySocials(selectedInstructor) : instructor_socials,
-      thumbnail_url,
+      thumbnail_url: toCanonicalMediaUrl(thumbnail_url),
       video_url: finalVideoUrl,
       videoKey: s3Key,
       stripePriceId: parsedPriceId.value,
@@ -413,7 +462,7 @@ exports.createVideo = async (req, res) => {
       tags,
       is_featured,
       is_active,
-      preview_url,
+      preview_url: toCanonicalMediaUrl(preview_url),
       previewKey,
       timestamps: normalizeTimestamps(timestamps),
     });
@@ -471,6 +520,15 @@ exports.updateVideo = async (req, res) => {
     if (Object.prototype.hasOwnProperty.call(req.body || {}, "timestamps")) {
       updates.timestamps = normalizeTimestamps(req.body.timestamps);
     }
+    if (Object.prototype.hasOwnProperty.call(updates, "thumbnail_url")) {
+      updates.thumbnail_url = toCanonicalMediaUrl(updates.thumbnail_url);
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, "preview_url")) {
+      updates.preview_url = toCanonicalMediaUrl(updates.preview_url);
+    }
+    if (Object.prototype.hasOwnProperty.call(updates, "instructor_photo")) {
+      updates.instructor_photo = toCanonicalMediaUrl(updates.instructor_photo);
+    }
 
     if (Object.prototype.hasOwnProperty.call(req.body || {}, "instructorId")) {
       updates.instructor_id = req.body.instructorId || null;
@@ -511,6 +569,39 @@ exports.updateVideo = async (req, res) => {
   } catch (error) {
     console.error("Update video error:", error);
     return res.status(500).json({ error: "Error updating video" });
+  }
+};
+
+// @desc    Delete video record (admin)
+// @route   DELETE /api/admin/videos/:id
+exports.deleteVideo = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const video = await Video.findById(id);
+    if (!video) {
+      return res.status(404).json({ error: "Video not found" });
+    }
+
+    const assetKeys = [
+      video.videoKey,
+      video.previewKey,
+      getS3KeyFromUrl(video.thumbnail_url),
+    ].filter(Boolean);
+
+    await Review.deleteMany({ video: id });
+    await Purchase.deleteMany({ video: id });
+    await User.updateMany(
+      { purchasedVideos: id },
+      { $pull: { purchasedVideos: id } }
+    );
+    await Video.findByIdAndDelete(id);
+
+    await Promise.all(assetKeys.map((key) => deleteS3KeySafe(key)));
+
+    return res.json({ success: true });
+  } catch (error) {
+    console.error("Delete video error:", error);
+    return res.status(500).json({ error: "Error deleting video" });
   }
 };
 

@@ -92,6 +92,11 @@ export const Video = {
     const { data: response } = await api.post("/admin/videos", data);
     return response;
   },
+
+  async delete(id) {
+    const { data: response } = await api.delete(`/admin/videos/${id}`);
+    return response;
+  },
 };
 
 export const Instructor = {
@@ -176,8 +181,14 @@ export const Purchase = {
   },
 
   async create(data) {
+    const videoIds = Array.isArray(data.video_ids)
+      ? data.video_ids
+      : data.video_id != null
+      ? [data.video_id]
+      : [];
     const { data: response } = await api.post("/purchases/create-checkout", {
-      videoId: data.video_id,
+      videoId: videoIds[0],
+      videoIds,
     });
     return response;
   },
@@ -194,6 +205,12 @@ export const CartItem = {
   },
 
   async create(data) {
+    const duplicate = this.items.find(
+      (item) =>
+        item.user_email === data.user_email && item.video_id === data.video_id
+    );
+    if (duplicate) return duplicate;
+
     const newItem = {
       id: Date.now().toString(),
       ...data,
@@ -208,6 +225,24 @@ export const CartItem = {
     this.items = this.items.filter((item) => item.id !== id);
     localStorage.setItem("filmroom_cart", JSON.stringify(this.items));
     return { success: true };
+  },
+
+  async clearByUser(userEmail) {
+    this.items = this.items.filter((item) => item.user_email !== userEmail);
+    localStorage.setItem("filmroom_cart", JSON.stringify(this.items));
+    return { success: true };
+  },
+};
+
+export const AdminReview = {
+  async list() {
+    const { data } = await api.get("/admin/reviews");
+    return data.reviews || [];
+  },
+
+  async delete(id) {
+    const { data } = await api.delete(`/admin/reviews/${id}`);
+    return data;
   },
 };
 

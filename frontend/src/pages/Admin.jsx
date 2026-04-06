@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Video } from "@/api/entities";
 import { Instructor } from "@/api/entities";
 import { Purchase } from "@/api/entities";
+import { AdminReview } from "@/api/entities";
 import { User } from "@/api/entities";
 import { 
   Crown, 
@@ -34,6 +35,7 @@ export default function Admin() {
   const [videos, setVideos] = useState([]);
   const [purchases, setPurchases] = useState([]);
   const [users, setUsers] = useState([]);
+  const [reviews, setReviews] = useState([]);
   const [instructors, setInstructors] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
@@ -50,17 +52,19 @@ export default function Admin() {
   }, []);
 
   const loadAdminData = async () => {
-    const [videoData, purchaseData, userData, instructorData] = await Promise.all([
+    const [videoData, purchaseData, userData, instructorData, reviewData] = await Promise.all([
       Video.list("-created_date"),
       Purchase.filter({ payment_status: "completed" }, "-created_date"),
       User.list("-created_date"),
       Instructor.list({ admin: true }),
+      AdminReview.list(),
     ]);
 
     setVideos(videoData);
     setPurchases(purchaseData);
     setUsers(userData);
     setInstructors(instructorData);
+    setReviews(reviewData);
 
     // Calculate stats
     const totalRevenue = purchaseData.reduce((sum, p) => sum + p.amount_paid, 0);
@@ -94,6 +98,24 @@ export default function Admin() {
   const toggleFeaturedStatus = async (video) => {
     await Video.update(video.id, { is_featured: !video.is_featured });
     loadAdminData();
+  };
+
+  const handleDeleteVideo = async (video) => {
+    const confirmed = window.confirm(
+      `Delete "${video.title}"? This removes related purchases/reviews and media files.`
+    );
+    if (!confirmed) return;
+    await Video.delete(video.id);
+    loadAdminData();
+  };
+
+  const handleDeleteReview = async (review) => {
+    const confirmed = window.confirm(
+      `Delete review "${review.title}" by ${review.user_name}?`
+    );
+    if (!confirmed) return;
+    await AdminReview.delete(review.id);
+    setReviews((prev) => prev.filter((r) => r.id !== review.id));
   };
 
   if (isLoading) {
@@ -188,6 +210,9 @@ export default function Admin() {
             <TabsTrigger value="sales" className="text-slate-300 data-[state=active]:text-white">
               Sales ({purchases.length})
             </TabsTrigger>
+            <TabsTrigger value="reviews" className="text-slate-300 data-[state=active]:text-white">
+              Reviews ({reviews.length})
+            </TabsTrigger>
             <TabsTrigger value="users" className="text-slate-300 data-[state=active]:text-white">
               Users ({users.length})
             </TabsTrigger>
@@ -271,6 +296,14 @@ export default function Admin() {
                               className="text-slate-400 hover:text-yellow-400"
                             >
                               <Crown className="w-4 h-4" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteVideo(video)}
+                              className="text-slate-400 hover:text-red-400"
+                            >
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
                         </TableCell>
@@ -370,6 +403,58 @@ export default function Admin() {
                         </TableRow>
                       );
                     })}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          <TabsContent value="reviews">
+            <Card className="bg-slate-800 border-slate-700">
+              <CardHeader>
+                <CardTitle>Review Management</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-slate-700">
+                      <TableHead className="text-slate-300">Date</TableHead>
+                      <TableHead className="text-slate-300">User</TableHead>
+                      <TableHead className="text-slate-300">Video</TableHead>
+                      <TableHead className="text-slate-300">Rating</TableHead>
+                      <TableHead className="text-slate-300">Review</TableHead>
+                      <TableHead className="text-slate-300">Actions</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {reviews.map((review) => (
+                      <TableRow key={review.id} className="border-slate-700">
+                        <TableCell className="text-slate-300">
+                          {new Date(review.created_date).toLocaleDateString()}
+                        </TableCell>
+                        <TableCell className="text-white">{review.user_name}</TableCell>
+                        <TableCell className="text-white">
+                          {review.video_title || "Video not found"}
+                        </TableCell>
+                        <TableCell className="text-white">{review.rating}/5</TableCell>
+                        <TableCell className="text-slate-300">
+                          <div className="max-w-xs">
+                            <div className="font-medium text-white">{review.title}</div>
+                            <div className="text-sm line-clamp-2">{review.body}</div>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteReview(review)}
+                            className="text-slate-400 hover:text-red-400"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))}
                   </TableBody>
                 </Table>
               </CardContent>

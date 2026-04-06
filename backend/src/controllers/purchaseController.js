@@ -13,64 +13,125 @@ function getValidStripePriceId(video) {
   return null;
 }
 
+function normalizeVideoIds(payload) {
+  const single = payload?.videoId;
+  const list = Array.isArray(payload?.videoIds) ? payload.videoIds : [];
+  const ids = [
+    ...list.map((id) => String(id).trim()).filter(Boolean),
+    ...(single != null ? [String(single).trim()] : []),
+  ];
+  return [...new Set(ids)];
+}
+
+async function upsertCompletedPurchase({
+  userId,
+  videoId,
+  stripeSessionId,
+  stripePaymentIntentId,
+  amountPerVideo,
+}) {
+  const existing = await Purchase.findOne({
+    user: userId,
+    video: videoId,
+  });
+
+  if (!existing) {
+    try {
+      await Purchase.create({
+        user: userId,
+        video: videoId,
+        stripeSessionId,
+        stripePaymentIntentId,
+        amount: amountPerVideo,
+        status: "completed",
+      });
+    } catch (createErr) {
+      if (createErr.code !== 11000) {
+        throw createErr;
+      }
+    }
+  } else if (!existing.stripeSessionId && stripeSessionId) {
+    await Purchase.findByIdAndUpdate(existing._id, {
+      stripeSessionId,
+      stripePaymentIntentId: stripePaymentIntentId || existing.stripePaymentIntentId,
+      status: "completed",
+    });
+  }
+
+  await User.findByIdAndUpdate(userId, {
+    $addToSet: { purchasedVideos: videoId },
+  });
+}
+
 // @desc    Create Stripe checkout session (or demo purchase)
 // @route   POST /api/purchases/create-checkout
 exports.createCheckout = async (req, res) => {
   try {
-    const { videoId } = req.body;
-    if (videoId == null || String(videoId).trim() === "") {
-      return res.status(400).json({ error: "videoId is required" });
+    const videoIds = normalizeVideoIds(req.body);
+    if (!videoIds.length) {
+      return res.status(400).json({ error: "videoId or videoIds is required" });
     }
     const userId = req.user._id;
 
-    // Get video details
-    const video = await Video.findById(videoId);
-    if (!video) {
-      return res.status(404).json({ error: "Video not found" });
+    // Get video details for all requested items
+    const videos = await Video.find({ _id: { $in: videoIds } });
+    const videosById = new Map(videos.map((video) => [String(video._id), video]));
+    const missingVideoIds = videoIds.filter((id) => !videosById.has(id));
+    if (missingVideoIds.length) {
+      return res.status(404).json({ error: "One or more videos were not found" });
     }
 
-    // Check if already purchased
-    const existingPurchase = await Purchase.findOne({
+    // Check already purchased videos and ignore them
+    const existingPurchases = await Purchase.find({
       user: userId,
-      video: videoId,
+      video: { $in: videoIds },
     });
+    const purchasedSet = new Set(existingPurchases.map((p) => String(p.video)));
+    const purchasableIds = videoIds.filter((id) => !purchasedSet.has(id));
 
-    if (existingPurchase) {
-      return res.status(400).json({ error: "You already own this video" });
+    if (!purchasableIds.length) {
+      return res.status(400).json({ error: "You already own these videos" });
     }
 
     // DEMO MODE: If Stripe not configured, create purchase directly
     if (!stripe) {
       console.log("🎬 DEMO MODE: Creating purchase without Stripe");
 
-      // Create purchase record
-      const purchase = await Purchase.create({
-        user: userId,
-        video: videoId,
-        amount: video.price * 100, // convert to cents
-        status: "completed",
-      });
-
-      // Add video to user's purchased videos
-      await User.findByIdAndUpdate(userId, {
-        $addToSet: { purchasedVideos: videoId },
-      });
+      const demoPurchases = [];
+      for (const id of purchasableIds) {
+        const video = videosById.get(id);
+        const purchase = await Purchase.create({
+          user: userId,
+          video: id,
+          amount: Math.round(Number(video.price || 0) * 100),
+          status: "completed",
+        });
+        demoPurchases.push(purchase);
+        await User.findByIdAndUpdate(userId, {
+          $addToSet: { purchasedVideos: id },
+        });
+      }
 
       return res.json({
         success: true,
         demo: true,
         message: "Demo purchase completed",
-        purchase: purchase,
+        purchases: demoPurchases,
       });
     }
 
-    // PRODUCTION MODE: Stripe Checkout must use a Price ID (price_), not prod_ or price_data
-    const stripePriceId = getValidStripePriceId(video);
-    if (!stripePriceId) {
-      return res.status(400).json({
-        error:
-          "This course is missing a valid Stripe Price ID (price_...). Set it in admin.",
-      });
+    // PRODUCTION MODE: Stripe Checkout must use Price IDs (price_)
+    const lineItems = [];
+    for (const id of purchasableIds) {
+      const video = videosById.get(id);
+      const stripePriceId = getValidStripePriceId(video);
+      if (!stripePriceId) {
+        return res.status(400).json({
+          error:
+            "One or more courses are missing a valid Stripe Price ID (price_...). Set them in admin.",
+        });
+      }
+      lineItems.push({ price: stripePriceId, quantity: 1 });
     }
 
     const frontendUrl =
@@ -82,10 +143,11 @@ exports.createCheckout = async (req, res) => {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ["card"],
       mode: "payment",
-      line_items: [{ price: stripePriceId, quantity: 1 }],
+      line_items: lineItems,
       metadata: {
         userId: String(userId),
-        videoId: String(videoId),
+        videoId: String(purchasableIds[0]),
+        videoIds: JSON.stringify(purchasableIds),
       },
       success_url: `${frontendUrl}/Library`,
       cancel_url: `${frontendUrl}/Videos`,
@@ -133,11 +195,23 @@ exports.stripeWebhook = async (req, res) => {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object;
     const userId = session.metadata?.userId;
-    const videoId = session.metadata?.videoId;
+    const singleVideoId = session.metadata?.videoId;
+    let videoIds = [];
+    try {
+      const parsed = JSON.parse(session.metadata?.videoIds || "[]");
+      if (Array.isArray(parsed)) {
+        videoIds = parsed.map((id) => String(id).trim()).filter(Boolean);
+      }
+    } catch (parseErr) {
+      console.warn("Invalid metadata.videoIds JSON:", parseErr.message);
+    }
+    if (!videoIds.length && singleVideoId) {
+      videoIds = [String(singleVideoId)];
+    }
 
-    if (!userId || !videoId) {
+    if (!userId || !videoIds.length) {
       console.error(
-        "Stripe webhook: checkout.session.completed missing userId or videoId",
+        "Stripe webhook: checkout.session.completed missing userId or videoId(s)",
         { sessionId: session.id, metadata: session.metadata }
       );
     } else {
@@ -147,41 +221,21 @@ exports.stripeWebhook = async (req, res) => {
             ? session.payment_intent
             : session.payment_intent?.id ?? null;
 
-        const existing = await Purchase.findOne({
-          stripeSessionId: session.id,
-        });
+        const amountTotal = Number(session.amount_total || 0);
+        const perVideoAmount =
+          videoIds.length > 0 ? Math.floor(amountTotal / videoIds.length) : amountTotal;
 
-        if (existing) {
-          await User.findByIdAndUpdate(userId, {
-            $addToSet: { purchasedVideos: videoId },
-          });
-        } else {
-          try {
-            await Purchase.create({
-              user: userId,
-              video: videoId,
-              stripeSessionId: session.id,
-              stripePaymentIntentId: paymentIntentId,
-              amount: session.amount_total,
-              status: "completed",
-            });
-          } catch (createErr) {
-            if (createErr.code === 11000) {
-              console.warn(
-                "Purchase idempotent skip (duplicate key):",
-                createErr.keyPattern || createErr.message
-              );
-            } else {
-              throw createErr;
-            }
-          }
-
-          await User.findByIdAndUpdate(userId, {
-            $addToSet: { purchasedVideos: videoId },
+        for (const videoId of videoIds) {
+          await upsertCompletedPurchase({
+            userId,
+            videoId,
+            stripeSessionId: session.id,
+            stripePaymentIntentId: paymentIntentId,
+            amountPerVideo: perVideoAmount,
           });
         }
 
-        console.log("✅ Purchase completed:", { userId, videoId });
+        console.log("✅ Purchase completed:", { userId, videoIds });
       } catch (error) {
         console.error("Error processing purchase:", error);
         return res

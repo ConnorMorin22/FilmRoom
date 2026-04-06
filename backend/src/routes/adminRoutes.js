@@ -8,8 +8,14 @@ const {
   abortMultipartUpload,
   createVideo,
   updateVideo,
+  deleteVideo,
 } = require("../controllers/adminVideoController");
-const { getUsers, getPurchases } = require("../controllers/adminController");
+const {
+  getUsers,
+  getPurchases,
+  getReviews,
+  deleteReview,
+} = require("../controllers/adminController");
 const {
   getAdminInstructors,
   createInstructor,
@@ -41,8 +47,11 @@ router.post(
 );
 router.post("/videos", protect, requireAdmin, createVideo);
 router.put("/videos/:id", protect, requireAdmin, updateVideo);
+router.delete("/videos/:id", protect, requireAdmin, deleteVideo);
 router.get("/users", protect, requireAdmin, getUsers);
 router.get("/purchases", protect, requireAdmin, getPurchases);
+router.get("/reviews", protect, requireAdmin, getReviews);
+router.delete("/reviews/:id", protect, requireAdmin, deleteReview);
 router.get("/instructors", protect, requireAdmin, getAdminInstructors);
 router.post("/instructors", protect, requireAdmin, createInstructor);
 router.put("/instructors/:id", protect, requireAdmin, updateInstructor);
