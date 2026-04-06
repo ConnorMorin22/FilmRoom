@@ -11,17 +11,14 @@ const purchaseSchema = new mongoose.Schema({
     ref: "Video",
     required: true,
   },
+  /** Same Checkout Session / PaymentIntent can cover multiple videos — must not be globally unique */
   stripeSessionId: {
     type: String,
-    required: false, // Changed from true
-    unique: true, // Add this
-    sparse: true, // Add this - allows multiple null/undefined values
+    required: false,
   },
   stripePaymentIntentId: {
     type: String,
     required: false,
-    unique: true,
-    sparse: true,
   },
   amount: {
     type: Number, // in cents
